@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Insights Buddy</title>
+<meta name="description" content="Seek deeper insights. Read a seized phone into a case on this computer.">
+<link rel="icon" href="/static/brand/logo.svg" type="image/svg+xml">
+<script>
+  /* Theme, text size and menu before the first paint, so nothing flashes. */
+  (function () {
+    var d = document.documentElement, t = null, s = null, m = null;
+    try { t = localStorage.getItem('ib.theme'); s = localStorage.getItem('ib.textsize'); m = localStorage.getItem('ib.side'); } catch (e) {}
+    if (t !== 'dark' && t !== 'light') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    d.setAttribute('data-theme', t);
+    if (s === 'large') d.setAttribute('data-textsize', 'large');
+    if (m === 'hidden') d.setAttribute('data-side', 'hidden');
+  })();
+</script>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/chat-looks.css">
+</head>
+<body>
+<a class="skip" href="#view" data-skip>Skip to the page</a>
+<div class="loadline" id="loadline" hidden></div>
+
+<aside class="side" id="side" aria-label="Menu">
+  <a class="brand" href="#/" aria-label="Insights Buddy, all cases">
+    <img src="/static/brand/logo.svg" width="28" height="28" alt="">
+    <span>Insights Buddy</span>
+  </a>
+  <div class="side-case" id="side-case"></div>
+  <nav class="side-nav" id="side-nav" aria-label="This case"></nav>
+  <div class="side-jobs" id="side-jobs" role="status" aria-live="polite"></div>
+  <div class="side-foot">
+    <div class="mini-seg" role="group" aria-label="Colours">
+      <button type="button" data-theme-set="dark" aria-pressed="false">Dark</button>
+      <button type="button" data-theme-set="light" aria-pressed="false">Light</button>
+    </div>
+    <div class="mini-seg" role="group" aria-label="Text size">
+      <button type="button" data-size-set="normal" aria-pressed="false">Normal text</button>
+      <button type="button" data-size-set="large" aria-pressed="false">Large text</button>
+    </div>
+    <span class="badge-offline" id="badge" data-tip="Nothing leaves this computer except questions to the AI, when one is set up elsewhere">Offline, on this PC only</span>
+  </div>
+</aside>
+
+<div class="frame" id="frame">
+  <header class="top" id="top">
+    <div class="top-left">
+      <button type="button" class="btn icon ghost" id="side-toggle" aria-label="Hide the menu" data-tip="Hide the menu" aria-controls="side" aria-expanded="true"></button>
+      <button type="button" class="btn ghost small" id="back" hidden></button>
+      <h1 class="top-title" id="top-title">Insights Buddy</h1>
+    </div>
+    <div class="top-right">
+      <div class="qf" id="qf" hidden>
+        <span class="qf-icon" id="qf-icon" aria-hidden="true"></span>
+        <input id="qf-input" type="search" placeholder="Find name, number, word" aria-label="Find a name, number or word"
+               autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="qfpop" aria-autocomplete="list">
+        <kbd aria-hidden="true">/</kbd>
+      </div>
+      <button type="button" class="btn small" id="export-btn" hidden aria-haspopup="menu" aria-expanded="false"></button>
+      <button type="button" class="btn small" id="notes-btn" hidden></button>
+      <div class="me" id="me" hidden>
+        <button type="button" class="avatar" id="me-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="me-menu"></button>
+        <div class="menu" id="me-menu" role="menu" hidden>
+          <a role="menuitem" href="#/about" id="me-about">About and credits</a>
+          <button type="button" role="menuitem" id="me-logout">Log out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="limitbar" id="limitbar" hidden></div>
+  <div class="pagebar" id="pagebar" hidden></div>
+  <main id="view" tabindex="-1">
+    <div class="page"><p class="muted">Opening Insights Buddy…</p></div>
+  </main>
+</div>
+
+<aside class="drawer" id="drawer" hidden aria-labelledby="drawer-title" tabindex="-1"></aside>
+<div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+<dialog id="dialog" aria-labelledby="dlg-title"></dialog>
+<div class="qfpop" id="qfpop" role="listbox" aria-label="Quick find results" hidden></div>
+<div class="menu export-menu" id="export-menu" role="menu" hidden></div>
+<button type="button" class="totop btn icon" id="totop" hidden aria-label="Back to the top" data-tip="Back to the top"></button>
+<div class="statline" id="statline" role="status" aria-live="polite"></div>
+<div class="alertline" id="alertline" role="alert"></div>
+
+<!-- Shell first, then the shared page helpers, then every page. Each file registers itself on IB. -->
+<script src="/static/icons.js"></script>
+<script src="/static/app.js"></script>
+<script src="/static/charts.js"></script>
+<script src="/static/across.js"></script>
+<script src="/static/pages/home.js"></script>
+<script src="/static/pages/dashboard.js"></script>
+<script src="/static/pages/ask.js"></script>
+<script src="/static/pages/search.js"></script>
+<script src="/static/pages/chats.js"></script>
+<script src="/static/pages/calls.js"></script>
+<script src="/static/pages/timeline.js"></script>
+<script src="/static/pages/people.js"></script>
+<script src="/static/pages/places.js"></script>
+<script src="/static/pages/media.js"></script>
+<script src="/static/pages/keyq.js"></script>
+<script src="/static/pages/findings.js"></script>
+<script src="/static/pages/more.js"></script>
+</body>
+</html>

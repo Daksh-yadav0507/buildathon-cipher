@@ -1,0 +1,1 @@
+/* Code words, Evidence added, Audit, Phone details, warrant limit, Faces, Link board: IB.page('codes'|'sources'|'audit'|'phone'|'faces'|'board', ...), IB.action('limit', ...). See docs/frontend-interfaces.md. */

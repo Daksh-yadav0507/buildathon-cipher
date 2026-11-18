@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Insights Buddy">
+  <defs>
+    <linearGradient id="ib-logo-fill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b7bf0"/>
+      <stop offset="1" stop-color="#13a594"/>
+    </linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="26" fill="url(#ib-logo-fill)"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round">
+    <circle cx="42" cy="42" r="20" stroke-width="8"/>
+    <path d="M57 57 74 74" stroke-width="8"/>
+    <path d="M33 42h18" stroke-width="7"/>
+  </g>
+</svg>
