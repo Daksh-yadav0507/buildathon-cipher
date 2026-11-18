@@ -422,6 +422,9 @@ def chat(cid: str, conv_id: int, before: str = "", after: str = "", around: str 
                 if r["source_id"] != c["source_id"]:
                     r["mine"] = own is not None and ctx.person(r.get("sender"), r["source_id"]) == own \
                         if r.get("sender") else False
+                    r["direction_on_phone"] = r.get("direction")
+                    r["direction"] = "out" if r["mine"] else "in"
+                    r["from_other_phone"] = True
         find_out = None
         if words:
             cond = " AND ".join(["(' ' || COALESCE(e.folded, '') || ' ') LIKE ?"] * len(words))
@@ -513,15 +516,15 @@ def _missing_marks(con, ctx: Ctx, rows: list[dict], limited: bool) -> None:
                         " AND ts BETWEEN ? AND ? ORDER BY ABS(ts - ?) LIMIT 1",
                    [osid, r["ts"] - 120_000, r["ts"] + 120_000, r["ts"]])
         if not m:
-            r["across"] = {"mark": "missing", "source_id": osid, "phone_label": lab,
+            r["across"] = {"mark": "missing", "tone": "serious", "source_id": osid, "phone_label": lab,
                            "text": f"Missing on {short}'s log",
                            "tip": f"This call is on {r['phone_label']} but there is no call at this time on {lab}."
                                   " It may have been deleted from that phone."}
         elif (m["duration_s"] or 0) != (r.get("duration_s") or 0) and abs((m["duration_s"] or 0) - (r.get("duration_s") or 0)) > 5:
-            r["across"] = {"mark": "length", "source_id": osid, "phone_label": lab, "event_id": m["event_id"],
+            r["across"] = {"mark": "length", "tone": "orange", "source_id": osid, "phone_label": lab, "event_id": m["event_id"],
                            "text": f"Different length on {short}: {text.duration_words(m['duration_s'] or 0)}"}
         else:
-            r["across"] = {"mark": "same", "source_id": osid, "phone_label": lab, "event_id": m["event_id"],
+            r["log_match"] = {"mark": "same", "source_id": osid, "phone_label": lab, "event_id": m["event_id"],
                            "text": f"Also on {short}'s log"}
 
 
@@ -580,6 +583,8 @@ def _calls(cid: str, type: str, person: str, app: str, country: str, phone: str,
             r["other_number"] = (other or "").split(":", 1)[-1]
             r["other_person_id"] = ctx.person(other) if other else None
         _missing_marks(con, ctx, rows, w != "1=1")
+        for r in rows:  # the page reads a list of marks: [{text, tip, tone}]
+            r["across"] = [r["across"]] if r.get("across") else []
         return {"type": t, "counts": counts, "total": counts[t], "offset": offset, "rows": rows}
 
 
