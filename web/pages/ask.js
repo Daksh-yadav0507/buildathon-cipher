@@ -44,10 +44,10 @@
     .ask-q { font-weight: 600; font-size: 1.05em; }
     .ask-line { margin: 0 0 10px; line-height: 1.6; }
     .ask-line .cite { margin-left: 4px; }
-    .ask-warn { display: inline-flex; vertical-align: -3px; margin-left: 4px; color: var(--warn, var(--serious, #b26a00)); }
+    .ask-warn { display: inline-flex; vertical-align: -3px; margin-left: 4px; color: var(--warning); }
     .ask-nf { color: var(--text-2); }
     .ask-nf ul { margin: 4px 0 0; padding-left: 20px; }
-    .ask-rel { display: flex; gap: 6px; align-items: center; color: var(--good, var(--green, #1f7a4d)); }
+    .ask-rel { display: flex; gap: 6px; align-items: center; color: var(--good); }
     .ask-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .ask-step { display: flex; gap: 10px; align-items: center; }
     .ask-earlier .rec { cursor: pointer; }
