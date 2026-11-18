@@ -1,9 +1,11 @@
 {
-  "team_name": "CHANGE_ME",
-  "project_title": "CHANGE_ME",
-  "one_liner": "CHANGE_ME: one sentence about what you're building",
-  "track": "CHANGE_ME: physical-world | ai-agents | area-of-expertise",
+  "team_name": "cipher",
+  "project_title": "Insights Buddy",
+  "one_liner": "Reads a phone's chat export the way an investigator would: who is who, where the money went and what the code words mean, with every answer citing messages that code has checked.",
+  "track": "physical-world",
   "members": [
-    { "name": "CHANGE_ME", "github": "CHANGE_ME" }
+    { "name": "Abhay Phalswal", "github": "AbhayPhalswal" },
+    { "name": "Daksh Yadav", "github": "Daksh-yadav0507" },
+    { "name": "Sanskar Sharma", "github": "legend534" }
   ]
 }
