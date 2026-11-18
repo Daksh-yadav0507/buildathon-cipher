@@ -12,7 +12,7 @@
   --accent:#6941c6; --accent-ink:#f4f4f5; --accent-soft:#efeafd;
   --primary:#b6f2ee; --primary-hover:#9fe9e3; --primary-ink:#06211f; --primary-edge:#0f766e;
   --side-bg:#ffffff; --side-ink:#141416; --side-ink-2:#4a4c53; --side-line:#e1e1e6; --side-on:#ececf0; --side-mark:#6941c6;
-  --critical:#c0264f; --serious:#c2410c; --warning:#92400e; --good:#166534;
+  --critical:#c0264f; --serious:#ad3a09; --warning:#92400e; --good:#166534;
   --mark:#fde68a; --out:#efeafd; --in:#ffffff;
   --series:#6941c6; --seq-lo:#efeafd; --seq-hi:#4c2a9e; --empty:#ececf0;
   --flag:#0f766e; --flag-soft:#dcf5f2;
@@ -44,7 +44,7 @@
   --primary:#b6f2ee; --primary-hover:#d2f8f5; --primary-ink:#06211f; --primary-edge:#b6f2ee;
   --side-bg:#1e1e21; --side-ink:#f4f4f5; --side-ink-2:#b9bbc0; --side-line:#3a3a3f; --side-on:#393a3f; --side-mark:#b9a4fc;
   --critical:#ff6b8a; --serious:#fda46b; --warning:#f5c451; --good:#3ecf8e;
-  --mark:#5c4a12; --out:#2c2645; --in:#252529;
+  --mark:#4d3e0d; --out:#2c2645; --in:#252529;
   --series:#b9a4fc; --seq-lo:#2c2645; --seq-hi:#ddd2fe; --empty:#26262a;
   --flag:#b6f2ee; --flag-soft:#1b3533;
   --tone-blue-bg:#1e2a44; --tone-blue-fg:#b7cbf8; --tone-green-bg:#15322a; --tone-green-fg:#9ee8c4;
@@ -1020,3 +1020,29 @@ body.is-bare .frame { margin-left:0; }
 .drawer .around .rec .rec-app { display:none; }
 .drawer .around .rec .rec-tags { grid-column:2; justify-content:flex-start; }
 .drawer .around .rec-here { display:block; border-color:var(--accent); background:var(--accent-soft); cursor:default; }
+
+
+/* ---------- Polish pass: contrast, text size, click targets, press feedback ---------- */
+/* The case header is dark in both themes, so its small labels and links use light ink. */
+.hero .caps { color:#c3c5cb; }
+.hero .link, .hero button.link { color:#d6cafd; }
+/* A selected filter keeps readable ink in the dark theme. */
+:root[data-theme="dark"] .btn[aria-pressed="true"], :root[data-theme="dark"] .btn.on,
+:root[data-theme="dark"] button.chip[aria-pressed="true"], :root[data-theme="dark"] .chip.on {
+  background:var(--accent-soft); border-color:var(--accent); color:var(--text);
+}
+/* Everything that can be clicked says so, and is at least 24px to hit. */
+button, summary, [role="button"], [role="tab"], label:has(> input[type="radio"]), label:has(> input[type="checkbox"]) { cursor:pointer; }
+button:disabled, [aria-disabled="true"] { cursor:not-allowed; }
+input[type="radio"], input[type="checkbox"] { width:18px; height:18px; accent-color:var(--accent); flex:none; }
+.btn.icon { flex:none; }
+.link { padding-block:3px; }
+.side-all.small { display:inline-flex; align-items:center; gap:4px; min-height:28px; padding:4px 6px; margin-left:-6px; border-radius:var(--r-s); }
+.side-all.small:hover { background:var(--side-on); text-decoration:none; }
+/* Press feedback on the controls that are not .btn. */
+.side-nav a:active, .side-nav button:active, .tab:active, [role="tab"]:active,
+.seg button:active, .mini-seg button:active, button.chip:active, a.chip:active { transform:scale(.98); }
+@media (prefers-reduced-motion: reduce) {
+  .side-nav a:active, .side-nav button:active, .tab:active, [role="tab"]:active,
+  .seg button:active, .mini-seg button:active, button.chip:active, a.chip:active, .btn:active { transform:none; }
+}

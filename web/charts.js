@@ -29,10 +29,10 @@
     .ch-years span { flex: 1 0 6px; min-width: 6px; font-size: 11px; white-space: nowrap; overflow: visible; color: var(--text-3, #777); }
     .ch-axis { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border, rgba(127,127,127,.35)); padding-top: 6px; font-size: 12px; color: var(--text-3, #777); }
     .ch-heat { display: grid; grid-template-columns: 34px repeat(24, minmax(0, 1fr)); gap: 3px; align-items: center; }
-    .ch-heat .ch-dl { font-size: 11px; color: var(--text-3, #777); }
+    .ch-heat .ch-dl { font-size: 12px; color: var(--text-3, #777); }
     .ch-cell { aspect-ratio: 1 / 1; border-radius: 4px; min-width: 6px; background: var(--empty, rgba(127,127,127,.14)); }
     .ch-cell:focus-visible { outline: 2px solid var(--accent, #3b6fd8); outline-offset: 1px; }
-    .ch-hl { font-size: 11px; color: var(--text-3, #777); text-align: left; }
+    .ch-hl { font-size: 12px; color: var(--text-3, #777); text-align: left; }
     .ch-legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3, #777); }
     .ch-ramp { width: 120px; height: 10px; border-radius: 999px; background: linear-gradient(90deg, var(--seq-lo, #dbe6fb), var(--seq-hi, #1f4fb4)); }
     .ch-mini { display: inline-flex; align-items: flex-end; gap: 2px; height: 22px; vertical-align: middle; }

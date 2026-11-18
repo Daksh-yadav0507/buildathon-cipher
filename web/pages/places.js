@@ -11,11 +11,11 @@
     .pl-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; align-items: start; }
     .pl-map { width: 100%; height: auto; display: block; border-radius: 12px; background: var(--surface-2, #eef1f5); }
     .pl-map .grid { stroke: var(--line, rgba(127,127,127,.22)); stroke-width: 1; }
-    .pl-map .lbl { font-size: 11px; fill: var(--muted, #6b7280); }
+    .pl-map .lbl { font-size: 12px; fill: var(--muted, #6b7280); }
     .pl-map .lbl-dot { fill: var(--muted, #6b7280); opacity: .6; }
     .pl-map .pt { cursor: pointer; stroke: #fff; stroke-width: 2; opacity: .88; }
     .pl-map .pt:hover, .pl-map .pt:focus, .pl-map .pt.on { opacity: 1; stroke: var(--text, #111); outline: none; }
-    .pl-map .pt-n { font-size: 11px; font-weight: 700; fill: #fff; pointer-events: none; }
+    .pl-map .pt-n { font-size: 12px; font-weight: 700; fill: #fff; pointer-events: none; }
     .pl-days { max-height: 520px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
     .pl-days button { text-align: left; display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
     .pl-days button:hover { background: var(--surface-2, rgba(127,127,127,.1)); }
@@ -81,7 +81,7 @@
     const maxN = Math.max(1, ...pts.map((p) => +p.n || 1));
     const circles = pts.slice().sort((a, b) => (b.n || 1) - (a.n || 1)).map((p) => {
       const i = points.indexOf(p);
-      const r = 7 + 13 * Math.sqrt((+p.n || 1) / maxN);
+      const r = 12 + 10 * Math.sqrt((+p.n || 1) / maxN);
       const pn = phoneN(p);
       const cx = X(+p.lon).toFixed(1), cy = Y(+p.lat).toFixed(1);
       const tip = `${p.place || 'A place'}: ${IB.plural(+p.n || 1, 'record', 'records')}`;
