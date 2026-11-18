@@ -18,13 +18,15 @@
 
   /* "Phone 2" from a source id, a label or an object. */
   function phoneOf(src) {
-    if (src && typeof src === 'object') src = pick(src, 'source_id', 'label', 'phone_label', 'phone_no');
+    if (src && typeof src === 'object' && src.phone && typeof src.phone === 'object') src = src.phone;
+    let given = '';
+    if (src && typeof src === 'object') { given = src.label || ''; src = pick(src, 'source_id', 'label', 'phone_label', 'phone_no'); }
     const phones = IB.state.phones || [];
     const p = phones.find(x => x.source_id === src || x.label === src || x.phone_no === src);
-    const label = (p && p.label) || (typeof src === 'string' ? src : '');
+    const label = (p && p.label) || given || (typeof src === 'string' ? src : '');
     return { id: p ? p.source_id : src, label, short: (label.split('|')[0] || label).trim() || 'the other phone' };
   }
-  const chip = src => IB.phoneChip(src && typeof src === 'object' ? (pick(src, 'source_id', 'label', 'phone_label') || src) : src);
+  const chip = src => { const p = phoneOf(src); return p.id != null && p.id !== '' ? IB.phoneChip(p.id) : (p.label ? IB.phoneChip(p.label) : ''); };
 
   function gapText(sec) {
     if (sec == null || isNaN(sec)) return '';
@@ -36,6 +38,7 @@
   }
   const gapOf = (r, a, b) => {
     const g = pick(r, 'gap_s', 'gap_seconds');
+    if (g == null && r.gap_ms != null) return Number(r.gap_ms) / 1000;
     if (g != null) return Number(g);
     const gm = pick(r, 'gap_min', 'gap_minutes');
     if (gm != null) return Number(gm) * 60;
@@ -70,7 +73,10 @@
   const cites = ids => ids.slice(0, 6).map((id, i) => IB.cite(i + 1, id, 'Open this record')).join(' ');
   const firstEid = ids => ids.length ? ` data-eid="${E(ids[0])}"` : '';
 
-  function card(title, counts, body, emptyText) {
+  let headers = {};
+  function card(title, counts, body, emptyText, key) {
+    const h = key && headers[key];
+    if (h) { const bits = String(h).split(' | '); title = bits[0]; counts = bits.slice(1); }
     const c = counts.filter(Boolean).map(E).join(' | ');
     return `<section class="card across-card">
       <div class="card-head"><h3 class="card-title">${E(title)}${c ? ` <span class="muted small">| ${c}</span>` : ''}</h3></div>
@@ -82,7 +88,7 @@
     : '';
 
   /* 3. Money between the phones */
-  function moneyCard(part) {
+  function moneyCard(part, totalsPart) {
     const rows = list(part);
     let total = 0;
     const html = rows.map(r => {
@@ -96,7 +102,7 @@
       const fp = phoneOf(from), tp = phoneOf(to);
       const sentence = pick(r, 'text', 'sentence') ||
         `${IB.fmt.money(amt)} left ${fp.label}${fromName ? ` (${pick(from, 'method') || 'UPI'} to ${fromName})` : ''} and arrived on ${tp.label}${gap != null ? ' ' + gapText(gap) + ' later' : ''}${toName ? ` (from ${toName})` : ''}`;
-      const said = list(r.said || r.said_in_chat || r.chat).map(s => typeof s === 'string' ? `<div class="small muted clamp-1">"${E(s)}"</div>`
+      const said = list(r.talk || r.said || r.chat).map(s => typeof s === 'string' ? `<div class="small muted clamp-1">"${E(s)}"</div>`
         : `<div class="small muted clamp-1" data-eid="${E(s.event_id)}" tabindex="0">"${E(pick(s, 'body', 'text', 'snippet') || '')}"</div>`).join('');
       return `<tr class="clickable" tabindex="0"${firstEid(ids)}>
         <td class="num"><b>${E(IB.fmt.money(amt))}</b></td>
@@ -104,10 +110,10 @@
         <td class="small">${E(IB.fmt.time(pick(from, 'ts') || r.ts))}</td>
         <td>${cites(ids)}</td></tr>`;
     });
-    const totals = list(part && part.totals).map(t => `<span class="pill tone-orange">${E(phoneOf(pick(t, 'from', 'source_a')).short)} to ${E(phoneOf(pick(t, 'to', 'source_b')).short)}: ${E(IB.fmt.money(t.total || t.amount || 0))}</span>`).join(' ');
+    const totals = list(totalsPart || (part && part.totals)).map(t => `<span class="pill tone-orange"${list(t.event_ids)[0] ? ` data-eid="${E(t.event_ids[0])}" tabindex="0"` : ''}>${E(t.text || `${phoneOf(pick(t, 'from_phone', 'from')).short} to ${phoneOf(pick(t, 'to_phone', 'to')).short}: ${IB.fmt.money(t.total || 0)}`)}</span>`).join(' ');
     return card('Money between the phones', [rows.length ? IB.plural(rows.length, 'match', 'matches') : '', rows.length ? IB.fmt.money(total) : ''],
       (totals ? `<div class="row small">${totals}</div>` : '') + table(['Amount', 'What happened', 'When', 'Records'], html),
-      'No payment on one phone matches a payment arriving on another.');
+      'No payment on one phone matches a payment arriving on another.', 'money');
   }
 
   /* 5. Calls checked against each other */
@@ -116,31 +122,31 @@
     let missing = 0;
     const html = rows.map(r => {
       const kind = pick(r, 'kind', 'type', 'issue') || (r.missing_on ? 'missing' : 'length');
-      const has = phoneOf(pick(r, 'source_id', 'on', 'found_on', 'has'));
-      const other = phoneOf(pick(r, 'missing_on', 'other_source_id', 'other', 'not_on'));
+      const has = phoneOf(pick(r, 'on_phone', 'source_id', 'on', 'found_on', 'has'));
+      const other = phoneOf(pick(r, 'missing_on', 'other_phone', 'other_source_id', 'other', 'not_on'));
       const ts = pick(r, 'ts', 'when');
       const dur = pick(r, 'duration_s', 'duration');
       let what;
       if (String(kind).startsWith('miss')) {
         missing++;
-        what = `<span class="chip status serious" data-tip="This call is on ${E(has.label)}'s log but not on ${E(other.label)}'s, although that phone has other calls around that day">Missing on ${E(other.short)}'s log</span> <span class="small muted">may have been deleted there</span>`;
+        what = `<span class="chip status serious" data-tip="This call is on ${E(has.label)}'s log but not on ${E(other.label)}'s, although that phone has other calls that day">${E(r.mark || `Missing on ${other.short}'s log`)}</span> <span class="small muted">may have been deleted there</span>`;
       } else {
         const od = pick(r, 'other_duration_s', 'duration_other', 'other_duration');
-        what = `<span class="pill tone-orange">Different length on ${E(other.short)}: ${E(IB.fmt.duration(od))}</span>`;
+        what = `<span class="pill tone-orange">${E(r.mark || `Different length on ${other.short}: ${IB.fmt.duration(od)}`)}</span>`;
       }
       const ids = eidsOf(r);
       const day = ts ? IB.fmt.dayKey(ts) : '';
       const href = day ? IB.link('timeline', { day, kind: 'call' }) : '';
       return `<tr class="clickable" tabindex="0"${href ? ` data-href="${E(href)}"` : firstEid(ids)} data-tip="Open both phones' records for that day">
         <td class="small">${E(IB.fmt.time(ts))}</td>
-        <td>${chip(has.id)}${pick(r, 'person', 'name', 'with') ? ` <span class="small">with ${E(pick(r, 'person', 'name', 'with'))}</span>` : ''}</td>
+        <td>${chip(has.id != null ? has.id : has.label)}${r.text ? `<div class="small">${E(r.text)}</div>` : ''}${pick(r, 'person', 'name', 'with') ? ` <span class="small">with ${E(pick(r, 'person', 'name', 'with'))}</span>` : ''}</td>
         <td class="num">${dur != null ? E(IB.fmt.duration(dur)) : ''}</td>
         <td>${what}</td>
         <td>${cites(ids)}</td></tr>`;
     });
     return card('Calls checked against each other', [rows.length ? IB.plural(rows.length, 'call to check', 'calls to check') : '', missing ? missing + ' missing' : ''],
       table(['When', 'On the log of', 'Length', 'What to check', 'Records'], html),
-      'Every call between these phones is on both logs, with the same length.');
+      'Every call between these phones is on both logs, with the same length.', 'calls');
   }
 
   /* 2. Together at the same place and time */
@@ -153,14 +159,14 @@
       const gap = gapOf(r, ss[0], ss[1]);
       return `<tr class="clickable" tabindex="0"${firstEid(ids)}>
         <td><b>${E(pick(r, 'place', 'name') || 'Same place')}</b></td>
-        <td>${ss.map(s => `<div>${chip(s.source_id || s)} <span class="small">${E(IB.fmt.time(s.ts))}</span></div>`).join('')}</td>
+        <td>${ss.map(s => `<div>${chip(s)} <span class="small">${E(IB.fmt.time(s.ts))}</span></div>`).join('')}</td>
         <td class="num">${dist != null ? E(Math.round(dist) + ' m') : ''}</td>
-        <td class="small">${gap != null ? E(gap < 60 ? 'same minute' : gapText(gap)) : ''}</td>
+        <td class="small">${E(r.gap_words || (gap != null ? (gap < 60 ? 'same minute' : gapText(gap)) : ''))}</td>
         <td>${cites(ids)}</td></tr>`;
     });
     return card('Together at the same place and time', [rows.length ? IB.plural(rows.length, 'time', 'times') : ''],
       table(['Place', 'Phones and times', 'Apart', 'Gap', 'Records'], html),
-      'No two phones were within about 500 m of each other within 30 minutes.');
+      'No two phones were within about 500 m of each other within 30 minutes.', 'together');
   }
 
   /* 1. Both sides of the same chat */
@@ -178,13 +184,13 @@
       const href = conv ? IB.link('chats', { conv, both: 1 }) : '';
       return `<tr${href ? ` class="clickable" tabindex="0" data-href="${E(href)}"` : ''}>
         <td><b>${E(pick(r, 'title', 'name') || 'Chat')}</b> ${r.app ? IB.appChip(r.app) : ''}</td>
-        <td>${per.map(p => `<div>${chip(p.source_id || p.label || p)} <span class="small num">${p.n != null || p.n_messages != null ? E(IB.plural(Number(pick(p, 'n', 'n_messages')), 'message', 'messages')) : ''}</span></div>`).join('')}</td>
+        <td>${per.map(p => `<div>${chip(p)} <span class="small num">${p.n != null || p.n_messages != null ? E(IB.plural(Number(pick(p, 'n', 'n_messages')), 'message', 'messages')) : ''}</span></div>`).join('')}</td>
         <td>${notes.join(' ') || '<span class="small muted">Both copies match</span>'}</td>
         <td>${href ? `<button type="button" class="btn small" data-href="${E(href)}">Both sides</button>` : ''}</td></tr>`;
     });
     return card('Both sides of the same chat', [rows.length ? IB.plural(rows.length, 'chat', 'chats') : ''],
       table(['Chat', 'Messages on each phone', 'Worth a look', ''], html),
-      'No chat is held on more than one phone.');
+      'No chat is held on more than one phone.', 'chats');
   }
 
   /* 4. The same file on several phones */
@@ -194,7 +200,7 @@
       const copies = sides(r, [['a', 'b']]).slice().sort((x, y) => (toMs(x.ts) || 0) - (toMs(y.ts) || 0));
       const ids = eidsOf(r);
       const t0 = toMs(copies[0] && copies[0].ts);
-      const path = copies.map((c, i) => `${chip(c.source_id || c)} <span class="small">${E(i === 0 ? 'first, ' + IB.fmt.time(c.ts) : (t0 != null && toMs(c.ts) != null ? gapText((toMs(c.ts) - t0) / 1000) + ' later' : IB.fmt.time(c.ts)))}</span>`).join(' <span class="muted">then</span> ');
+      const path = copies.map((c, i) => `${chip(c)} <span class="small">${E(i === 0 ? 'first, ' + IB.fmt.time(c.ts) : (t0 != null && toMs(c.ts) != null ? gapText((toMs(c.ts) - t0) / 1000) + ' later' : IB.fmt.time(c.ts)))}</span>`).join(' <span class="muted">then</span> ');
       const fp = pick(r, 'sha256', 'fingerprint');
       return `<tr class="clickable" tabindex="0"${firstEid(ids)}>
         <td><b>${E(pick(r, 'name', 'media_name', 'file_name') || 'File')}</b>${fp ? `<div class="tiny muted code" data-tip="Fingerprint: the same on every copy">${E(String(fp).slice(0, 12))}</div>` : ''}</td>
@@ -204,7 +210,7 @@
     });
     return card('The same file on several phones', [rows.length ? IB.plural(rows.length, 'file', 'files') : ''],
       table(['File', 'Size', 'How it went from phone to phone', 'Records'], html),
-      'No file of 10 KB or more is on more than one phone.');
+      'No file of 10 KB or more is on more than one phone.', 'files');
   }
 
   /* 6. How each phone saved the others */
@@ -217,12 +223,12 @@
       return `<tr${pid ? ` class="clickable" tabindex="0" data-href="${E(IB.link('person/' + pid))}"` : ''}>
         <td><b>${E(pick(r, 'name', 'person', 'owner_name') || '')}</b>${owner ? ' <span class="small muted">owner of</span> ' + chip(owner) : ''}</td>
         <td>${saved.map(s => typeof s === 'string' ? `<span class="pill">${E(s)}</span>`
-          : `<span class="pill tone-teal"${s.event_id ? ` data-eid="${E(s.event_id)}" tabindex="0"` : ''}>"${E(pick(s, 'name', 'saved_as'))}" on ${E(phoneOf(pick(s, 'source_id', 'phone', 'label')).short)}</span>`).join(' ')}</td>
+          : `<span class="pill tone-teal"${s.event_id ? ` data-eid="${E(s.event_id)}" tabindex="0"` : ''}>"${E(pick(s, 'name', 'saved_as'))}" on ${E(phoneOf(s.phone || pick(s, 'source_id', 'label')).short)}</span>`).join(' ')}</td>
         <td class="num">${saved.length > 1 || r.n_phones ? E(IB.plural(Number(r.n_phones || saved.length), 'phone', 'phones')) : ''}</td></tr>`;
     });
     return card('How each phone saved the others', [rows.length ? IB.plural(rows.length, 'person', 'people') : ''],
       table(['Person', 'Saved as', 'Known to'], html),
-      'No person is saved in more than one phone\'s contacts.');
+      'No person is saved in more than one phone\'s contacts.', 'names');
   }
 
   /* Loading, cached per case: worked out once by the server, never reloaded on a timer. */
@@ -246,10 +252,12 @@
     catch (err) { if (!ctx.alive || ctx.alive()) IB.fail(el, err, () => { cache = null; render(el, ctx); }); return; }
     if (ctx.alive && !ctx.alive()) return;
     data = data || {};
+    headers = data.headers || {};
+    if (data.enabled === false) { el.innerHTML = IB.empty(data.why_off || 'Across phones needs two or more people\'s phones in the case.', { icon: 'arrows-left-right' }); return; }
     el.innerHTML = `<div class="stack across">
-      <p class="muted small">Compared by code, with no AI. These are leads to check, not findings.${data.limited || IB.state.limit && IB.state.limit.from ? ' While the warrant limit is on, only records inside it are compared and nothing is called missing.' : ''}</p>
+      <p class="muted small">${E(data.note || 'Compared by code, with no AI. These are leads to check, not findings.')}${data.limited ? ' While the warrant limit is on, only records inside it are compared and nothing is called missing.' : ''}</p>
       ${data.updating ? IB.updating(true) : ''}
-      ${moneyCard(data.money)}
+      ${moneyCard(data.money, data.money_totals)}
       ${callsCard(data.calls)}
       ${togetherCard(data.together)}
       ${chatsCard(data.chats)}
@@ -275,9 +283,7 @@
   let marks = null;
   function index(data) {
     const calls = new Map(), chats = new Map();
-    list(data && data.calls).forEach(r => {
-      for (const id of eidsOf(r)) calls.set(id, r);
-    });
+    list(data && data.calls).forEach(r => { if (r.event_id) calls.set(r.event_id, r); });
     list(data && data.chats).forEach(r => {
       const per = list(r.phones || r.per_phone || r.copies);
       const convs = [r.conv_id, ...per.map(p => p && p.conv_id), ...list(r.conv_ids)].filter(Boolean);
@@ -292,12 +298,12 @@
     const r = marks.calls.get(row.event_id || row);
     if (!r) return '';
     const kind = String(pick(r, 'kind', 'type', 'issue') || (r.missing_on ? 'missing' : 'length'));
-    const other = phoneOf(pick(r, 'missing_on', 'other_source_id', 'other', 'not_on'));
+    const other = phoneOf(pick(r, 'missing_on', 'other_phone', 'other_source_id', 'other', 'not_on'));
     if (kind.startsWith('miss')) {
-      return `<span class="chip status serious across-mark" data-tip="The other phone in this call has other calls that day, but not this one: it may have been deleted there">Missing on ${E(other.short)}'s log</span>`;
+      return `<span class="chip status serious across-mark" data-tip="The other phone in this call has other calls that day, but not this one: it may have been deleted there">${E(r.mark || `Missing on ${other.short}'s log`)}</span>`;
     }
     const od = pick(r, 'other_duration_s', 'duration_other', 'other_duration');
-    return `<span class="pill tone-orange across-mark" data-tip="Both logs have this call, with lengths more than 20% apart">Different length on ${E(other.short)}: ${E(IB.fmt.duration(od))}</span>`;
+    return `<span class="pill tone-orange across-mark" data-tip="Both logs have this call, with lengths more than 20% apart">${E(r.mark || `Different length on ${other.short}: ${IB.fmt.duration(od)}`)}</span>`;
   }
 
   /* HTML for a chat row's mark ("Also on Phone 2"), or ''. */
@@ -307,8 +313,8 @@
     const m = marks.chats.get(id);
     if (!m) return '';
     const mine = typeof conv === 'object' ? conv.source_id : null;
-    const others = m.per.map(p => p && (p.source_id || p.label)).filter(s => s && s !== mine)
-      .map(s => phoneOf(s).short);
+    const others = m.per.map(p => phoneOf(p)).filter(p => p.id !== mine && String(p.id) !== String(mine))
+      .map(p => p.short);
     const names = [...new Set(others)];
     return `<span class="pill tone-blue across-mark">Also on ${E(names.length ? names.join(' and ') : 'another phone')}</span>`;
   }

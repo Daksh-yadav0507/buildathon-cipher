@@ -76,8 +76,8 @@
             </div>
             <label class="row small">Sort
               <select class="select" id="ppl-sort" aria-label="Sort people">
-                ${[['contact', 'Most contact'], ['messages', 'Most messages'], ['calls', 'Most calls'], ['last', 'Last contact'], ['name', 'Name']]
-                  .map(([v, l]) => `<option value="${v}"${(q.sort || 'contact') === v ? ' selected' : ''}>${l}</option>`).join('')}
+                ${[['messages', 'Most messages'], ['calls', 'Most calls'], ['last', 'Last contact'], ['first', 'First contact'], ['name', 'Name']]
+                  .map(([v, l]) => `<option value="${v}"${(q.sort || 'messages') === v ? ' selected' : ''}>${l}</option>`).join('')}
               </select></label>
           </div>
           <div id="ppl-list"></div>
@@ -146,7 +146,7 @@
         clearTimeout(t);
         t = setTimeout(() => { ctx.setQuery({ q: e.target.value.trim() }); more.reload(); }, 300);
       });
-      IB.$('#ppl-sort', view).addEventListener('change', e => { ctx.setQuery({ sort: e.target.value === 'contact' ? '' : e.target.value }); more.reload(); });
+      IB.$('#ppl-sort', view).addEventListener('change', e => { ctx.setQuery({ sort: e.target.value === 'messages' ? '' : e.target.value }); more.reload(); });
     },
   });
 
@@ -162,36 +162,45 @@
     async render(view, ctx) {
       const pid = ctx.params.pid;
       view.innerHTML = `<div class="page">${IB.skeleton('page')}</div>`;
-      let p;
-      try { p = await ctx.capi('/people/' + encodeURIComponent(pid)); }
+      let d;
+      try { d = await ctx.capi('/people/' + encodeURIComponent(pid)); }
       catch (err) { IB.fail(IB.$('.page', view), err, () => IB.reload()); return; }
-      p = (p && (p.person || p)) || {};
+      d = d || {};
+      const p = Object.assign({}, d, d.person || {});
       const name = p.name || numbersOf(p)[0] || 'Unknown';
       ctx.title(name);
-      const owner = pick(p, 'owner_source_id', 'owner_of');
-      const counts = p.counts || {};
+      const owners = list(p.owner_of).map(c => typeof c === 'object' ? (c.source_id != null ? c.source_id : c.label) : c);
+      if (!owners.length && p.owner_source_id != null) owners.push(p.owner_source_id);
+      const owner = owners.length ? owners : null;
+      const counts = d.counts || {};
+      const asRec = (r, kind) => Object.assign({ kind }, r, {
+        source_id: r.source_id != null ? r.source_id : (r.phone && r.phone.source_id),
+        phone_label: r.phone_label || (r.phone && r.phone.label) });
       const nMsg = n(pick(counts, 'messages', 'n_messages') ?? pick(p, 'n_messages', 'messages'));
       const nCall = n(pick(counts, 'calls', 'n_calls') ?? pick(p, 'n_calls'));
       const first = pick(counts, 'first_ts') || p.first_ts, last = pick(counts, 'last_ts') || p.last_ts;
 
-      const names = list(p.names_evidence || p.names || p.aliases).map(a => typeof a === 'string' ? { name: a } : a);
-      const idents = list(p.idents || p.identifiers || p.numbers).map(i => typeof i === 'string' ? { display: i } : i);
-      const chats = list(p.chats);
-      const calls = list(p.calls).slice(0, 10);
-      const money = p.money || {};
-      const moneyRows = list(money.rows || money);
-      const together = list(p.together || p.places_together || p.places);
-      const docs = list(p.documents || p.media || p.files);
-      const across = p.across || {};
-      const acrossSaved = list(across.saved || across.names || across);
-      const acrossMoney = list(across.money);
+      const names = list(d.names || p.also).map(a => typeof a === 'string' ? { name: a } : a);
+      const idents = list(d.identifiers || d.idents || p.numbers).map(i => typeof i === 'string' ? { display: i } : i);
+      const chats = list(d.chats);
+      const calls = list(d.calls).slice(0, 10).map(r => asRec(r, 'call'));
+      const money = d.money || {};
+      const moneyRows = list(money.rows || money).map(r => asRec(Object.assign({ body: [r.words, r.amount_text, r.method].filter(Boolean).join(', ') }, r), 'money'));
+      const together = list(d.places_together || d.together);
+      const docs = list(d.media || d.documents).map(r => asRec(Object.assign({ media_name: r.name }, r), r.kind || 'document'));
+      const across = d.across || {};
+      const acrossSaved = [];
+      list(across.names).forEach(a => list(a.names).forEach(nm => acrossSaved.push({ name: nm, phone: a.phone })));
+      const acrossMoney = list(across.money_with_owners || across.money).map(m => Object.assign({
+        text: `With ${m.owner || 'the owner'} on ${(m.phone && m.phone.label) || 'their phone'}: paid ${m.paid_text || IB.fmt.money(m.paid || 0)}, received ${m.received_text || IB.fmt.money(m.received || 0)}` }, m));
 
-      const anyEid = [moneyRows, calls, chats, docs].map(l => l.find(r => r && r.event_id)).find(Boolean);
-      const sent = money.sent != null ? money.sent : moneyRows.filter(r => r.direction === 'debit').reduce((s, r) => s + n(r.amount), 0);
-      const got = money.received != null ? money.received : moneyRows.filter(r => r.direction === 'credit').reduce((s, r) => s + n(r.amount), 0);
+      const anyEid = counts.first_message_id ? { event_id: counts.first_message_id }
+        : [moneyRows, calls, docs, names].map(l => l.find(r => r && r.event_id)).find(Boolean);
+      const sent = money.paid_to_them != null ? money.paid_to_them : money.sent != null ? money.sent : moneyRows.filter(r => r.direction === 'debit').reduce((s, r) => s + n(r.amount), 0);
+      const got = money.received_from_them != null ? money.received_from_them : money.received != null ? money.received : moneyRows.filter(r => r.direction === 'credit').reduce((s, r) => s + n(r.amount), 0);
 
       const nameItem = a => {
-        const how = pick(a, 'how', 'evidence', 'found');
+        const how = pick(a, 'how_text', 'evidence');
         const src = pick(a, 'source_id', 'phone', 'label');
         const where = how || (src ? `Saved on ${IB.across ? IB.across.phoneOf(src).label : src}` : '');
         return `<li${a.event_id ? ` class="clickable" tabindex="0" data-eid="${E(a.event_id)}"` : ''}><b>${E(a.name)}</b> <span class="small muted">${E(where)}</span></li>`;
@@ -199,16 +208,17 @@
 
       view.innerHTML = `<div class="page stack">
         <div class="row ppl-head">
-          <h2 class="ppl-name grow">${E(name)} ${owner ? `<span class="small muted">owner of</span> ${IB.phoneChip(owner)}` : ''}</h2>
-          <button type="button" class="btn primary" data-ask="${E(`What do the records say about ${name}?`)}">${IB.icon('spark')} Ask about this person</button>
+          <h2 class="ppl-name grow">${E(name)} ${owner ? `<span class="small muted">owner of</span> ${IB.phoneChips(owner)}` : ''}</h2>
+          <button type="button" class="btn primary" data-ask="${E(d.ask || `What do the records say about ${name}?`)}">${IB.icon('spark')} Ask about this person</button>
           <button type="button" class="btn" id="ppl-save"${anyEid ? '' : ' disabled data-tip="No record to save yet"'}>${IB.icon('flag')} Save as finding</button>
         </div>
         <div class="cols cols-4">
           ${IB.statTile({ n: IB.fmt.num(nMsg), label: 'Messages', href: IB.link('timeline', { person: pid, kind: 'message' }) })}
           ${IB.statTile({ n: IB.fmt.num(nCall), label: 'Calls', href: IB.link('calls', { person: pid }) })}
           ${IB.statTile({ n: first ? IB.fmt.date(first) : 'Not found', label: 'First contact' })}
-          ${IB.statTile({ n: last ? IB.fmt.date(last) : 'Not found', label: 'Last contact', sub: spark(p.weekly || p.per_week || p.spark) })}
+          ${IB.statTile({ n: last ? IB.fmt.date(last) : 'Not found', label: 'Last contact' })}
         </div>
+        ${spark(p.weekly) ? `<div class="row small muted">Contact per week ${spark(p.weekly)}</div>` : ''}
         <div class="cols cols-2">
           ${cardHtml('Names on these phones', names.length ? `<ul class="ppl-names">${names.map(nameItem).join('')}</ul>` : '', 'No other names found.')}
           ${cardHtml('Numbers and IDs', idents.length ? `<div class="kv">${idents.map(i => {
@@ -219,8 +229,8 @@
         <div class="cols cols-2">
           ${cardHtml('Chats with them', chats.length ? `<div class="rec-list">${chats.map(c => `
             <div class="rec clickable" tabindex="0" data-href="${E(IB.link('chats', { conv: c.conv_id }))}">
-              <div class="row"><b class="grow clamp-1">${E(c.title || name)}</b>${c.app ? IB.appChip(c.app) : ''}${c.source_id ? IB.phoneChip(c.source_id) : ''}</div>
-              <div class="small muted">${E(IB.plural(n(pick(c, 'n_messages', 'n')), 'message', 'messages'))}${c.n_deleted ? ', ' + E(c.n_deleted) + ' deleted' : ''}${c.last_ts ? ', last ' + E(IB.fmt.time(c.last_ts)) : ''}</div>
+              <div class="row"><b class="grow clamp-1">${E(c.title || name)}</b>${c.app ? IB.appChip(c.app) : ''}${c.phone ? IB.phoneChip(c.phone.source_id != null ? c.phone.source_id : c.phone.label) : (c.source_id ? IB.phoneChip(c.source_id) : '')}</div>
+              <div class="small muted">${E(IB.plural(n(pick(c, 'n_messages', 'n')), 'message', 'messages'))}${c.n_deleted ? ', ' + E(c.n_deleted) + ' deleted' : ''}${c.last_body ? ' | ' + E(c.last_body) : ''}${c.last_ts ? ', last ' + E(IB.fmt.time(c.last_ts)) : ''}</div>
             </div>`).join('')}</div>` : '', 'No chats with them.')}
           ${cardHtml('Calls', recs(calls), 'No calls with them.', calls.length ? `<a class="link small" href="${E(IB.link('calls', { person: pid }))}">See every call</a>` : '')}
         </div>
@@ -228,13 +238,13 @@
           ${cardHtml('Money with them', moneyRows.length ? `<div class="row small"><span class="pill tone-orange">Sent to them ${E(IB.fmt.money(sent))}</span><span class="pill tone-green">Received from them ${E(IB.fmt.money(got))}</span></div>${recs(moneyRows.slice(0, 10))}` : '', 'No money with them found.')}
           ${cardHtml('Places together', together.length ? `<div class="rec-list">${together.map(t => {
             const ids = list(t.event_ids);
-            return `<div class="rec clickable" tabindex="0"${ids[0] || t.event_id ? ` data-eid="${E(ids[0] || t.event_id)}"` : ''}><b>${E(t.place || 'Same place')}</b> <span class="small muted">${E(IB.fmt.time(t.ts || (t.a && t.a.ts)))}</span></div>`;
+            return `<div class="rec clickable" tabindex="0"${ids[0] || t.event_id ? ` data-eid="${E(ids[0] || t.event_id)}"` : ''}><b>${E(t.place || 'Same place')}</b> <span class="small muted">${E(IB.fmt.time(t.ts || (t.a && t.a.ts)))}${t.with ? ', with ' + E(t.with) : ''}${t.minutes_apart != null ? ', ' + E(IB.plural(t.minutes_apart, 'minute', 'minutes')) + ' apart' : ''}</span></div>`;
           }).join('')}</div>` : '', owner ? 'Not found together with another phone.' : 'Shown only for people who own a phone in this case.')}
         </div>
         <div class="cols cols-2">
           ${cardHtml('Their documents and photos', recs(docs.slice(0, 10)), 'No documents or photos from them.')}
           ${cardHtml('Across phones', (acrossSaved.length || acrossMoney.length) ? `
-            ${acrossSaved.length ? `<div class="row">${acrossSaved.map(s => typeof s === 'string' ? `<span class="pill">${E(s)}</span>` : `<span class="pill tone-teal"${s.event_id ? ` data-eid="${E(s.event_id)}" tabindex="0"` : ''}>"${E(pick(s, 'name', 'saved_as'))}" on ${E(IB.across ? IB.across.phoneOf(pick(s, 'source_id', 'phone')).short : pick(s, 'source_id', 'phone'))}</span>`).join(' ')}</div>` : ''}
+            ${acrossSaved.length ? `<div class="row">${acrossSaved.map(s => typeof s === 'string' ? `<span class="pill">${E(s)}</span>` : `<span class="pill tone-teal"${s.event_id ? ` data-eid="${E(s.event_id)}" tabindex="0"` : ''}>"${E(pick(s, 'name', 'saved_as'))}" on ${E(IB.across ? IB.across.phoneOf(s.phone || s.source_id).short : ((s.phone && s.phone.label) || ''))}</span>`).join(' ')}</div>` : ''}
             ${acrossMoney.length ? `<div class="rec-list">${acrossMoney.map(m => `<div class="rec clickable" tabindex="0"${m.event_id || list(m.event_ids)[0] ? ` data-eid="${E(m.event_id || list(m.event_ids)[0])}"` : ''}>${E(m.text || `${IB.fmt.money(n(m.amount))} with ${m.with || m.name || 'another owner'}`)}</div>`).join('')}</div>` : ''}` : '',
             'No other phone in this case knows them.')}
         </div>
