@@ -66,7 +66,8 @@
               <div class="card-head"><span class="cw-word">${esc(s.word)}</span>
                 <span class="muted small">${IB.plural(s.n || s.count || 0, 'use', 'uses')}${s.chats ? ' in ' + IB.plural(s.chats, 'chat', 'chats') : ''}</span></div>
               ${ex.map((e) => `<div class="cw-ex small" tabindex="0" ${e.event_id ? `data-eid="${esc(e.event_id)}"` : ''}>${e.snippet_html ? IB.safe(e.snippet_html) : esc(e.text || e.body || '')}</div>`).join('')}
-              ${s.meaning || s.suggested_meaning ? `<p class="small">Suggested meaning: <b>${esc(s.meaning || s.suggested_meaning)}</b></p>` : ''}
+              ${s.why ? `<p class="small muted">Why it stands out: ${esc(s.why)}</p>` : ''}
+              ${s.meaning || s.suggested_meaning ? `<p class="small">Suggested meaning: <b>${esc(s.meaning || s.suggested_meaning)}</b>${s.meaning_from ? ` <span class="muted">(from ${esc(s.meaning_from)})</span>` : ''}</p>` : ''}
               <div class="row"><button type="button" class="btn small primary" data-cw-ok="${i}">Confirm</button>
               <button type="button" class="btn small" data-cw-no="${i}">Not a code</button>
               <button type="button" class="btn small ghost" data-href="${esc(IB.link('search', { q: s.word }))}">Search for it</button></div>

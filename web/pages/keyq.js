@@ -97,7 +97,7 @@
         </div>
       </div>`;
     const when = list.when ? `<p class="muted small">When it applies: ${esc(list.when)}</p>` : '<p class="muted small">Runs on every phone.</p>';
-    const why = list.why ? `<p class="small kq-why">What pointed to it: ${esc(list.why)}</p>` : '';
+    const why = list.why && list.why !== 'Runs on every phone.' ? `<p class="small kq-why">What pointed to it: ${esc(list.why)}</p>` : '';
     const body = on
       ? `<div class="kq-list">${qs.map(questionHtml).join('')}</div>`
       : `<details class="fold"><summary>See the ${IB.plural(qs.length, 'question', 'questions')}</summary><div class="kq-list">${qs.map(questionHtml).join('')}</div></details>`;
@@ -146,7 +146,7 @@
     const lists = Array.isArray(data && data.lists) ? data.lists : [];
     const onLists = lists.filter((l) => l.used);
     const offLists = lists.filter((l) => !l.used);
-    const waiting = data && data.waiting;
+    const waiting = data && (data.waiting || data.running);
     const intro = `<div class="card-head">
         <div>
           <h2 class="section-title">Key questions</h2>
