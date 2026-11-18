@@ -98,7 +98,10 @@
 
   function togetherHtml(t) {
     const recs = [];
-    const add = (x) => { if (x && x.event_id) recs.push(x); else if (typeof x === 'string') recs.push({ event_id: x }); };
+    const add = (x) => {
+      const r = typeof x === 'string' ? { event_id: x } : x;
+      if (r && r.event_id && !recs.some((y) => y.event_id === r.event_id)) recs.push(r);
+    };
     add(t.a); add(t.b);
     arr(t.records).forEach(add);
     arr(t.event_ids).forEach(add);
@@ -108,7 +111,7 @@
     return `<div class="pl-tog">
       ${IB.phoneChips(phones)}
       <span>${esc(t.text || t.place || 'Same place')}</span>
-      <span class="muted small">${esc([t.ts ? IB.fmt.time(t.ts) : '', dist, gap].filter(Boolean).join(' · '))}</span>
+      <span class="muted small">${esc([t.when || (t.ts ? IB.fmt.time(t.ts) : ''), dist, gap].filter(Boolean).join(' · '))}</span>
       <span class="grow"></span>
       ${recs.slice(0, 4).map((r, i) => `<button type="button" class="btn small" data-eid="${esc(r.event_id)}">Open record ${i + 1}</button>`).join('')}
     </div>`;
@@ -154,7 +157,7 @@
     data = data || {};
     const days = arr(data.days).map((d) => (typeof d === 'string' ? { day: d, n: null } : { day: d.day || d.date, n: d.n != null ? d.n : d.count }));
     const points = arr(data.points);
-    const together = arr(data.together);
+    const together = day && Array.isArray(data.together_on_day) ? data.together_on_day : arr(data.together);
 
     $('#pl-tog').innerHTML = `<div class="card-title">Phones together</div>
       <p class="muted small">Times two phones were within 500 m of each other within 30 minutes.</p>

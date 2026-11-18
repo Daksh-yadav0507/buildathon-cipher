@@ -128,7 +128,7 @@
     }
     body.innerHTML = `<div class="ev-grid">${list.map((s, i) => {
       const counts = s.counts || s.by_kind || {};
-      const countText = Array.isArray(counts)
+      const countText = Array.isArray(s.counts_words) && s.counts_words.length ? s.counts_words.join(', ') : Array.isArray(counts)
         ? counts.map((c) => IB.plural(c.n || 0, c.kind, c.kind + 's')).join(', ')
         : Object.entries(counts).map(([k, n]) => IB.fmt.num(n) + ' ' + k).join(', ');
       const status = s.status === 'done' ? 'Read' : s.status === 'reading' ? 'Being read' : s.status === 'failed' ? 'Could not be read' : (s.status || '');
@@ -228,31 +228,33 @@
       <tbody>${rows.map((r) => `<tr>${keys.map((k) => `<td>${cell(k, (r || {})[k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
 
-  const SECTION_NAMES = { device: 'Phone', sims: 'SIMs and numbers', accounts: 'Accounts', wifi: 'Wi-Fi networks', apps: 'Installed apps', installed_apps: 'Installed apps', wifi_networks: 'Wi-Fi networks' };
-
   function phoneHtml(d) {
     if (!d || typeof d !== 'object') return IB.empty('No details recorded for this phone.', { icon: 'smartphone' });
-    const info = d.device_info && typeof d.device_info === 'object' ? Object.assign({}, d, d.device_info) : d;
-    const flat = {};
+    const info = (d.device_info && typeof d.device_info === 'object') ? d.device_info : {};
     const parts = [];
-    let pw = null;
-    Object.entries(info).forEach(([k, v]) => {
-      if (k === 'device_info' || k === 'source' || v == null || v === '') return;
-      if (/password/i.test(k)) { pw = v; return; }
-      if (Array.isArray(v)) parts.push(`<section class="card pd-section"><div class="card-title">${esc(SECTION_NAMES[k] || label(k))}</div>${tableOf(v)}</section>`);
-      else if (typeof v === 'object') parts.push(`<section class="card pd-section"><div class="card-title">${esc(SECTION_NAMES[k] || label(k))}</div><div class="kv">${Object.entries(v).map(([a, b]) => `<span class="muted">${esc(label(a))}</span><span>${esc(plain(b))}</span>`).join('')}</div></section>`);
-      else if (!/sha256|^source_id$/.test(k)) flat[k] = v;
+    let details = arr(d.details);
+    if (!details.length) {
+      details = [['Owner', info.owner_name || d.owner_name], ['Phone', info.model || d.device], ['Software', info.os || d.os],
+        ['IMEI', info.imei], ['Serial', info.serial], ['File added', d.file_name], ['Fingerprint', d.sha256]]
+        .filter(([, v]) => v).map(([label, value]) => ({ label, value }));
+    }
+    if (info.serial && !details.some((x) => x.label === 'Serial')) details.push({ label: 'Serial', value: info.serial });
+    parts.push(`<section class="card pd-section"><div class="card-head"><div class="card-title">Device</div>${IB.phoneChip(d)}</div>
+      <div class="kv">${details.map((x) => `<span class="muted">${esc(x.label)}</span><span class="${x.label === 'Fingerprint' ? 'code small ev-fp' : ''}">${esc(plain(x.value))}</span>`).join('')}</div></section>`);
+    const nums = arr(info.owner_numbers);
+    const sims = arr(d.sims).length ? arr(d.sims) : arr(info.sims);
+    parts.push(`<section class="card pd-section"><div class="card-title">SIMs and numbers</div>${tableOf(sims.length ? sims : nums)}</section>`);
+    [['Accounts', 'accounts'], ['Wi-Fi networks', 'wifi'], ['Installed apps', 'apps']].forEach(([t, k]) => {
+      const rows = arr(d[k]).length ? arr(d[k]) : arr(info[k]);
+      parts.push(`<section class="card pd-section"><div class="card-title">${esc(t)}</div>${tableOf(rows)}</section>`);
     });
-    const head = Object.keys(flat).length
-      ? `<section class="card pd-section"><div class="card-title">Device</div><div class="kv">${Object.entries(flat).map(([a, b]) => `<span class="muted">${esc(label(a))}</span><span>${/(_at|_ts)$/.test(a) ? esc(IB.fmt.time(b)) : esc(plain(b))}</span>`).join('')}</div></section>`
-      : '';
-    let pwHtml = '';
+    const pw = info.saved_passwords != null ? info.saved_passwords : (info.passwords != null ? info.passwords : info.n_passwords);
     if (pw != null) {
       const n = typeof pw === 'number' ? pw : Array.isArray(pw) ? pw.length : (pw && pw.n) || 0;
-      pwHtml = `<section class="card pd-section"><div class="card-title">Saved passwords</div>
-        <p>${IB.plural(n, 'saved password', 'saved passwords')} (hidden, never sent to the AI).</p></section>`;
+      parts.push(`<section class="card pd-section"><div class="card-title">Saved passwords</div>
+        <p>${IB.plural(n, 'saved password', 'saved passwords')} (hidden, never sent to the AI).</p></section>`);
     }
-    return head + parts.join('') + pwHtml || IB.empty('No details recorded for this phone.', { icon: 'smartphone' });
+    return parts.join('');
   }
 
   async function phone(view, ctx) {
