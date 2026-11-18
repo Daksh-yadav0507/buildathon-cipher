@@ -821,6 +821,8 @@ def answer(con, question: str, depth: str = "auto", scope: dict | None = None, a
         res = code_answer(ctx, con, qi, evs, money)
         code_only = True
         given_list = evs
+    if code_only and ai_on and not evs and not ai_note:
+        ai_note = "Nothing in the records matched, so the AI was not asked."
     if code_only and depth_used == "deep" and not ai_on:
         depth_used = "further"
 
