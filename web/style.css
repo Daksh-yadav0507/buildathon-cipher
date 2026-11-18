@@ -1019,3 +1019,4 @@ body.is-bare .frame { margin-left:0; }
 .drawer .around .rec { grid-template-columns:auto minmax(0, 1fr); }
 .drawer .around .rec .rec-app { display:none; }
 .drawer .around .rec .rec-tags { grid-column:2; justify-content:flex-start; }
+.drawer .around .rec-here { display:block; border-color:var(--accent); background:var(--accent-soft); cursor:default; }
