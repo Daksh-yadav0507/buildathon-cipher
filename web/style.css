@@ -999,3 +999,23 @@ body.is-bare .frame { margin-left:0; }
 .side-more > summary::-webkit-details-marker { display:none; }
 .side-more[open] > summary svg:last-child { transform:rotate(180deg); }
 .side-more > summary svg:last-child { margin-left:auto; transition:transform .15s var(--ease, ease); }
+
+/* Record rows as app.js draws them: time, kind, app, main, tags. */
+.rec { grid-template-columns:118px 20px 108px minmax(0, 1fr); }
+.rec .rec-app { display:flex; min-width:0; overflow:hidden; padding-top:1px; }
+.rec .rec-app .chip { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rec .rec-tags { grid-column:4; display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-start; min-width:0; }
+.rec .rec-tags:empty { display:none; }
+@container (min-width:720px) {
+  .rec { grid-template-columns:132px 22px 112px minmax(0, 1fr) auto; }
+  .rec .rec-tags { grid-column:auto; justify-content:flex-end; max-width:360px; }
+}
+@container (max-width:520px) {
+  .rec { grid-template-columns:20px minmax(0, 1fr); }
+  .rec .rec-time { grid-column:1 / -1; }
+  .rec .rec-app { display:none; }
+  .rec .rec-tags { grid-column:2; }
+}
+.drawer .around .rec { grid-template-columns:auto minmax(0, 1fr); }
+.drawer .around .rec .rec-app { display:none; }
+.drawer .around .rec .rec-tags { grid-column:2; justify-content:flex-start; }
