@@ -1,0 +1,7 @@
+fastapi>=0.110
+uvicorn>=0.29
+httpx>=0.27
+python-dotenv>=1.0
+# Optional, used only if installed:
+#   openpyxl                 Excel export
+#   indic-transliteration    better Hindi (Devanagari) to Roman letters
