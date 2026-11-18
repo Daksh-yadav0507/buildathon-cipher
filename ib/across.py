@@ -20,6 +20,11 @@ from fastapi import APIRouter, Depends
 from ib import db, limits, text
 from ib.officers import CaseAccess, require_case
 
+try:
+    from ib import ready as _ready
+except Exception:  # noqa: BLE001 - work without it
+    _ready = None
+
 router = APIRouter()
 
 READY_NAME = "across"
@@ -236,9 +241,9 @@ def _money_row(ctx: Ctx, d: dict, c: dict, strength: int) -> dict:
     return {
         "kind": "money", "amount": amount, "amount_text": text.format_inr(amount),
         "from_phone": _phone_ref(ctx, a), "to_phone": _phone_ref(ctx, b),
-        "debit": {"event_id": d["event_id"], "ts": d["ts"], "when": text.fmt_when(d["ts"]), "method": d["method"],
+        "debit": {"event_id": d["event_id"], "ts": d["ts"], "amount": amount, "when": text.fmt_when(d["ts"]), "method": d["method"],
                   "counterparty": d["counterparty"], "ref": d["ref"], "phone": _phone_ref(ctx, a)},
-        "credit": {"event_id": c["event_id"], "ts": c["ts"], "when": text.fmt_when(c["ts"]), "method": c["method"],
+        "credit": {"event_id": c["event_id"], "ts": c["ts"], "amount": float(c["amount"]), "when": text.fmt_when(c["ts"]), "method": c["method"],
                    "counterparty": c["counterparty"], "ref": c["ref"], "phone": _phone_ref(ctx, b)},
         "gap_ms": gap, "gap_s": round(gap / 1000), "gap_words": text.gap_words(gap),
         "names_match": strength > 0, "same_ref": bool(d["ref"] and c["ref"] and str(d["ref"]) == str(c["ref"])),
@@ -513,7 +518,7 @@ def _headers(r: dict) -> dict:
         "calls": f"Calls checked against each other | {missing} missing | {text.plural(length, 'different length', 'different lengths')}",
         "chats": f"Both sides of the same chat | {text.plural(len(r['chats']), 'chat')}",
         "files": f"The same file on several phones | {text.plural(len(r['files']), 'file')}",
-        "names": f"How each phone saved the others | {text.plural(len(r['names']), 'name')}",
+        "names": f"How each phone saved the others | {text.plural(len(r['names']), 'person', 'people')}",
     }
     if r.get("limited"):
         h["calls"] = f"Calls checked against each other | {text.plural(length, 'different length', 'different lengths')}"
@@ -521,6 +526,14 @@ def _headers(r: dict) -> dict:
 
 
 def get_across(cid: str) -> dict:
+    if _ready is not None:
+        value, updating = _ready.get(cid, READY_NAME, compute)
+        return _ready.with_updating(value, updating)
+    return _get_across_here(cid)
+
+
+def _get_across_here(cid: str) -> dict:
+    """The same saved-answer rule as ib/ready.py, used only if that module is missing."""
     with db.case_db(cid) as con:
         if limits.get_limit(con) is not None:
             out = compute(con)
@@ -697,11 +710,11 @@ def _thread_row(ctx: Ctx, key: str, copies: list[dict], w: str, p: list) -> dict
         ev = [m["event_id"] for m in msgs[:5]]
     return {
         "kind": "chat", "thread_key": key, "title": " / ".join(titles), "app": app,
-        "is_group": bool(copies[0]["is_group"]), "copies": counts,
-        "phones": [_phone_ref(ctx, s) for s in sources], "conv_ids": ids,
-        "open": {"page": "chats", "conv_id": copies[0]["conv_id"], "both": 1},
+        "is_group": bool(copies[0]["is_group"]), "copies": counts, "phones": counts, "conv_ids": ids,
+        "conv_id": copies[0]["conv_id"], "open": {"page": "chats", "conv_id": copies[0]["conv_id"], "both": 1},
         "n_deleted_elsewhere": len(deleted_elsewhere), "n_only_one": len(only_one),
-        "deleted_elsewhere": deleted_elsewhere[:100], "only_one": only_one[:50],
+        "deleted_elsewhere": len(deleted_elsewhere), "only_one": len(only_one),
+        "deleted_rows": deleted_elsewhere[:100], "only_one_rows": only_one[:50],
         "ts": msgs[0]["ts"], "last_ts": msgs[-1]["ts"], "text": sentence, "event_ids": ev,
     }
 
@@ -766,7 +779,7 @@ def check_files(ctx: Ctx) -> list[dict]:
             "kind": "file", "sha256": sha, "name": name, "size": size, "size_words": _size_words(size),
             "file_kind": kind, "first_phone": _phone_ref(ctx, first["source_id"]), "ts": first["ts"],
             "when": text.fmt_when(first["ts"]), "day": text.ist_day(first["ts"]),
-            "phones": [_phone_ref(ctx, s) for s in srcs], "holders": holders, "words_in_it": (ocr or "")[:300],
+            "phones": [_phone_ref(ctx, s) for s in srcs], "holders": holders, "copies": holders, "words_in_it": (ocr or "")[:300],
             "text": sentence, "event_ids": [h["event_id"] for h in holders],
         })
     out.sort(key=lambda r: (-len(r["phones"]), r["ts"]))
@@ -818,6 +831,20 @@ def check_names(ctx: Ctx) -> tuple[list[dict], list[dict]]:
             several.setdefault(pid, {"pr": pr, "saved": {}})["saved"].setdefault(sid, (saved, eid))
     names.extend(_names_from_contacts(ctx, {(n["saved_on"]["source_id"], n["person_id"]) for n in names}))
     names.sort(key=lambda n: (n["saved_on"]["phone_no"], n["owner_name"] or ""))
+    per_owner: dict[int, dict] = {}
+    for n in names:
+        pid = n["person_id"]
+        row = per_owner.setdefault(pid, {
+            "kind": "owner", "person_id": pid, "name": n["owner_name"], "owner_name": n["owner_name"],
+            "owner_of": ctx.source_of_owner[pid][0], "their_phones": n["their_phones"], "saved": [], "event_ids": []})
+        row["saved"].append({"phone": n["saved_on"], "saved_as": n["saved_as"], "name": n["saved_as"], "event_id": n["event_id"],
+                             "text": n["text"]})
+        if n["event_id"]:
+            row["event_ids"].append(n["event_id"])
+    for row in per_owner.values():
+        row["n_phones"] = len({x["phone"]["source_id"] for x in row["saved"]})
+        row["text"] = (f"{row['name']} ({ctx.phones[row['owner_of']]['short']}) is saved as "
+                       + " and ".join(f"\"{x['saved_as']}\" on {ctx.phones[x['phone']['source_id']]['short']}" for x in row["saved"]))
     known = []
     for pid, v in several.items():
         if len(v["saved"]) < 2:
@@ -830,7 +857,12 @@ def check_names(ctx: Ctx) -> tuple[list[dict], list[dict]]:
                       "text": f"{v['pr']['name']} is in the contacts of {phones} (as {as_words})",
                       "event_ids": [x["event_id"] for x in saved if x["event_id"]]})
     known.sort(key=lambda k: (-len(k["saved"]), k["name"] or ""))
-    return names[:MAX_ROWS], known[:MAX_ROWS]
+    for k in known:
+        k["n_phones"] = len(k["saved"])
+        for x in k["saved"]:
+            x["name"] = x["saved_as"]
+    owners = sorted(per_owner.values(), key=lambda r: ctx.phones[r["owner_of"]]["phone_no"])
+    return (owners + known)[:MAX_ROWS], known[:MAX_ROWS]
 
 
 def _names_from_contacts(ctx: Ctx, done: set) -> list[dict]:
@@ -877,3 +909,6 @@ def _names_from_contacts(ctx: Ctx, done: set) -> list[dict]:
 
 _MORE.update({"chats": check_chats, "files": check_files, "names": check_names})
 _MORE_EXTRA.update({"names": "known_by_several"})
+
+if _ready is not None:
+    _ready.register(READY_NAME, compute)
