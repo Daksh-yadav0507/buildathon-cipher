@@ -106,7 +106,7 @@
       const sp = h.spellings || [];
       bits.push('Searched every spelling of ' + words.map((w, i) => (i === 0 && sp.length ? w + ' (' + sp.join(', ') + ')' : w)).join(' and '));
     }
-    if (h.people && h.people.length) bits.push('looked for ' + h.people.join(', '));
+    if (h.people && h.people.length) bits.push('looked for ' + h.people.map((x) => (x && x.name) || x).join(', '));
     if (h.dates) bits.push('kept to ' + (h.dates.words || ((h.dates.from || '') + ' to ' + (h.dates.to || ''))));
     if (h.records_read != null) {
       const phones = (IB.state.phones || []).length;
@@ -114,7 +114,7 @@
         (h.rounds ? ' in ' + IB.plural(h.rounds, 'round', 'rounds') : ''));
     }
     if (h.seconds != null) bits.push(Number(h.seconds).toFixed(1) + ' s');
-    if (h.ai) bits.push(h.ai === 'none' || h.ai === false ? 'no AI, the records alone' : 'the AI ' + h.ai);
+    if (h.ai) bits.push(/code|none/i.test(String(h.ai)) ? 'answered from the records alone, no AI' : 'the AI ' + h.ai);
     if (res.depth_used) {
       const d = DEPTHS.find((x) => x[0] === res.depth_used);
       if (d) bits.push(d[1].toLowerCase());
@@ -164,7 +164,9 @@
     const nf = (res.not_found || []).length
       ? `<div class="ask-nf"><div class="small caps">Not in these records</div><ul>${res.not_found.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>`
       : '';
-    const rel = res.reliability ? `<div class="ask-rel small">${IB.icon('check', 16)}<span>${esc(res.reliability)}</span></div>` : '';
+    const rel = (res.reliability ? `<div class="ask-rel small">${IB.icon('check', 16)}<span>${esc(res.reliability)}</span></div>` : '') +
+      (res.status ? `<p class="small muted">${esc(res.status)}</p>` : '') +
+      (res.limit ? `<p class="small muted">${IB.icon('lock', 14)} ${esc(res.limit)}</p>` : '');
     const how = howText(res);
     const howFold = how ? `<details class="fold"><summary>How this was found</summary><p class="small muted">${esc(how)}</p></details>` : '';
     const cited = lines.length ? recs.filter((r) => map.has(r.event_id)) : [];
@@ -178,6 +180,7 @@
     const actions = `<div class="ask-actions">
       ${lines.length ? `<button type="button" class="btn small" data-act="save">${IB.icon('flag', 16)} Save as finding</button>` : ''}
       <button type="button" class="btn small ghost" data-act="copy">${IB.icon('copy', 16)} Copy</button>
+      ${res.offer_deep ? `<button type="button" class="btn small" data-act="deep">Read every chat for this</button>` : ''}
       ${follow}</div>`;
 
     const card = IB.el(`<article class="card stack" aria-label="Answer">${head}<div>${body}</div>${nf}${rel}${howFold}${recFold}${actions}</article>`);
@@ -186,6 +189,7 @@
       if (!b || !card.contains(b)) return;
       if (b.dataset.act === 'save') IB.saveFinding({ ask_id: res.ask_id, title: res.question });
       else if (b.dataset.act === 'copy') { IB.copy(copyText(res)); IB.status('Answer copied'); }
+      else if (b.dataset.act === 'deep') card.dispatchEvent(new CustomEvent('ib-ask', { bubbles: true, detail: { q: res.question, depth: 'deep' } }));
       else if (b.dataset.follow) card.dispatchEvent(new CustomEvent('ib-ask', { bubbles: true, detail: b.dataset.follow }));
     });
     return card;
@@ -290,7 +294,8 @@
         if (!ctx.alive() || !alive()) return;
         const bits = [];
         if (r.records != null) bits.push(IB.plural(r.records, 'message', 'messages') + (r.parts ? ' in ' + IB.plural(r.parts, 'part', 'parts') : ''));
-        if (r.minutes != null) bits.push('about ' + IB.plural(Math.max(1, Math.round(r.minutes)), 'minute', 'minutes'));
+        if (r.minutes_words) bits.push(r.minutes_words);
+        else if (r.minutes) bits.push('about ' + IB.plural(Math.round(r.minutes), 'minute', 'minutes'));
         if (r.cost_words) bits.push(r.cost_words);
         est.textContent = bits.join(' | ');
       } catch (err) {
@@ -342,7 +347,16 @@
       const s = e.target.closest('[data-suggest]');
       if (s) ask(s.dataset.suggest);
     });
-    view.addEventListener('ib-ask', (e) => { window.scrollTo({ top: 0, behavior: 'smooth' }); ask(e.detail); });
+    view.addEventListener('ib-ask', (e) => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const d = e.detail;
+      if (d && typeof d === 'object') {
+        const r = IB.$(`input[name="ask-depth"][value="${d.depth}"]`, view);
+        if (r) r.checked = true;
+        estimate();
+        ask(d.q);
+      } else ask(d);
+    });
 
     const earlier = IB.$('#ask-earlier', view);
     async function loadEarlier() {

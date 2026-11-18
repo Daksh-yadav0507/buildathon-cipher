@@ -92,12 +92,6 @@
           <p class="muted small" id="srch-how"></p>
           <div class="srch-modes small" id="srch-modes"></div>
         </div>
-        <div class="srch-tools">
-          <label class="row small"><span class="muted">Sort</span>
-            <select class="select" id="srch-sort" aria-label="Sort results">
-              <option value="">Best match</option><option value="new">Newest</option><option value="old">Oldest</option>
-            </select></label>
-        </div>
       </div>
       <div id="srch-filters"></div>
       <div id="srch-list"></div>`;
@@ -106,23 +100,21 @@
     const modes = IB.$('#srch-modes', view);
     if (mode === 'auto') {
       modes.innerHTML = ['exact', 'fuzzy', 'meaning'].map((m) =>
-        `<a class="link" href="${esc(IB.link('search', Object.assign({}, pick(q), { q: text, mode: m, sort: q.sort })))}">${esc(MODES[m].link)}</a>`)
+        `<a class="link" href="${esc(IB.link('search', Object.assign({}, pick(q), { q: text, mode: m })))}">${esc(MODES[m].link)}</a>`)
         .join('<span class="sep" aria-hidden="true">|</span>');
     } else {
       modes.innerHTML = `<span>${esc(MODES[mode].said)}</span>
-        <a class="link" href="${esc(IB.link('search', Object.assign({}, pick(q), { q: text, sort: q.sort })))}">Back to every spelling</a>`;
+        <a class="link" href="${esc(IB.link('search', Object.assign({}, pick(q), { q: text })))}">Back to every spelling</a>`;
     }
 
-    const sort = IB.$('#srch-sort', view);
-    sort.value = q.sort || '';
 
     const filters = IB.filters(IB.$('#srch-filters', view), {
       fields: [
-        { key: 'app', label: 'App', type: 'select', options: [['', 'Any app']].concat(appOptions()) },
-        { key: 'kind', label: 'Type', type: 'select', options: [['', 'Any type'], ['message', 'Messages'], ['call', 'Calls'], ['photo', 'Photos'], ['voice', 'Voice notes'], ['document', 'Documents'], ['location', 'Places']] },
-        { key: 'phone', label: 'Phone', type: 'select', options: [['', 'All phones']].concat(phoneOptions()) },
+        { key: 'app', label: 'App', type: 'select', options: appOptions() },
+        { key: 'kind', label: 'Type', type: 'select', options: [['message', 'Messages'], ['call', 'Calls'], ['photo', 'Photos'], ['voice', 'Voice notes'], ['document', 'Documents'], ['location', 'Places']] },
+        { key: 'phone', label: 'Phone', type: 'select', options: phoneOptions() },
         { key: 'person', label: 'Person', type: 'text' },
-        { key: 'status', label: 'Status', type: 'select', options: [['', 'Any status'], ['deleted', 'Deleted, recovered']] },
+        { key: 'status', label: 'Status', type: 'select', options: [['deleted', 'Deleted, recovered']] },
         { key: 'from', label: 'From', type: 'date' },
         { key: 'to', label: 'To', type: 'date' },
       ],
@@ -133,10 +125,6 @@
       },
     });
 
-    sort.addEventListener('change', () => {
-      ctx.setQuery({ sort: sort.value }, { push: true });
-      list.reload();
-    });
 
     const count = IB.$('#srch-count', view);
     const how = IB.$('#srch-how', view);
@@ -146,7 +134,7 @@
       empty: `No records match '${text}'.` + (mode === 'exact' ? ' Try every spelling instead.' : ' Try fewer words or clear the filters.'),
       async load(offset) {
         const cur = Object.assign({}, filters.values ? filters.values() : pick(ctx.query));
-        const r = await ctx.capi('/search', { query: Object.assign({ q: text, mode: mode === 'auto' ? '' : mode, sort: ctx.query.sort || '', offset }, cur) });
+        const r = await ctx.capi('/search', { query: Object.assign({ q: text, mode: mode === 'auto' ? '' : mode, offset }, cur) });
         const hits = (r && (r.hits || r.rows)) || [];
         const total = r && r.total != null ? r.total : hits.length;
         if (offset === 0) {
