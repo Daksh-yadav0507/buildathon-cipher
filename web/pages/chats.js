@@ -321,7 +321,7 @@
             </div>
           </header>
           ${st.both ? `<div class="th-banner" role="status">${IB.icon('arrows-left-right', 16)}
-            <span class="grow">${esc((st.bothInfo && st.bothInfo.banner) || ('Showing both sides: ' + [phoneFull(here)].concat(otherLabels).filter(Boolean).join(' and ') + '. Each message is shown once.'))}</span>
+            <span class="grow">${esc((st.bothInfo && st.bothInfo.banner) || ('Showing both sides: ' + [phoneFull(here)].concat(otherLabels).filter(Boolean).join(' and ') + '. Each message is shown once.'))}${c.n_deleted && otherLabels.length ? ` <b>${esc(IB.plural(c.n_deleted, 'message', 'messages'))} deleted on ${esc(c.phone_label || phoneFull(here))} ${c.n_deleted === 1 ? 'is' : 'are'} still on ${esc(otherLabels.join(' and '))}.</b>` : ''}</span>
             <button type="button" class="btn small" id="th-one">Back to this phone's copy</button></div>` : ''}
           <div class="th-scroll" id="th-scroll" data-look="${look}" tabindex="-1">
             <div class="th-msgs" id="th-msgs">${st.msgs.length ? msgsHtml(st) : ''}</div>
