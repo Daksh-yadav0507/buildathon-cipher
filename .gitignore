@@ -24,3 +24,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# lockfiles are generated (RULES.md 2.4)
+package-lock.json
