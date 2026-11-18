@@ -47,7 +47,7 @@
       const form = IB.$('#hm-form', view);
       const err = IB.$('#hm-err', view);
       const nameEl = form.elements.name;
-      setTimeout(() => nameEl.focus(), 0);
+      setTimeout(() => { if (nameEl) nameEl.focus(); }, 0);
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = form.elements.name.value.trim();
