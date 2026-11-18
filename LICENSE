@@ -1,7 +1,24 @@
 Copyright (c) 2026 Team cipher: Abhay Phalswal, Daksh Yadav, Sanskar Sharma.
 All rights reserved.
 
-This repository is public so that the Buildathon organisers and judges can
-review it. No licence is granted to use, copy, modify or distribute this
-code or its design, in whole or in part, without written permission from
-the authors.
+This repository is public for one reason only: so that the Buildathon
+organisers and judges can review it. Reading it for that review is the only
+permission given.
+
+Without prior written permission from the authors, no one may:
+
+1. use, run, copy, modify, merge, publish, distribute, sublicense or sell
+   this software or any part of it;
+2. reuse its design, screens, wording, data model, prompts or made-up
+   sample data;
+3. build, offer or sell a product or service based on the product concept,
+   features or workflows described or implemented in this repository;
+4. use any part of it to train or evaluate machine-learning models.
+
+No licence is granted by implication, by the repository being public, or by
+forking it. A fork made on GitHub, as GitHub's terms allow, carries no rights
+beyond viewing.
+
+"Insights Buddy" is the authors' name for this product.
+
+To ask for permission, contact Daksh Yadav: https://github.com/Daksh-yadav0507

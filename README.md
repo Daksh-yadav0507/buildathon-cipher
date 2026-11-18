@@ -126,3 +126,5 @@ _Replace this section with your project README:_
 - **The hardest part:** how we solved it
 - **How to run it:**
 - **Demo / screenshots:**
+
+> **All rights reserved.** This repository is public only so the Buildathon organisers and judges can review it. No one may use or copy this code, its design or the product idea without written permission from the team. See [LICENSE](LICENSE).
