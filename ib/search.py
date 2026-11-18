@@ -271,6 +271,14 @@ def _fuzzy_search(con, words: list[str], w: str, p: list, offset: int, limit: in
                             f" WHERE events_fts MATCH ? AND {w} LIMIT {FUZZY_CANDIDATES}",
                             [_fts_expr(words, "OR", []), *p])
     scored, matched = [], set()
+    memo: dict[tuple[str, str], float] = {}
+
+    def sim(x: str, t: str) -> float:
+        k = (x, t)
+        if k not in memo:
+            memo[k] = _similar(x, t) if abs(len(t) - len(x)) <= max(2, len(x) // 2) else 0.0
+        return memo[k]
+
     for c in cand:
         toks = set((c.get("folded") or "").split())
         if not toks:
@@ -280,7 +288,7 @@ def _fuzzy_search(con, words: list[str], w: str, p: list, offset: int, limit: in
         for x in words:
             best, best_tok = 0.0, None
             for t in toks:
-                s = _similar(x, t) if abs(len(t) - len(x)) <= max(2, len(x) // 2) else 0.0
+                s = sim(x, t)
                 if s > best:
                     best, best_tok = s, t
             if best < FUZZY_MIN:
