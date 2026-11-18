@@ -35,6 +35,7 @@
     .db-app { display: flex; gap: 12px; align-items: flex-start; color: inherit; text-decoration: none; height: 100%; }
     .db-app:hover { border-color: var(--text-3, rgba(127,127,127,.5)); }
     .db-fp { display: inline-flex; align-items: center; gap: 6px; }
+    .db-note { white-space: nowrap; font-weight: 400; }
   `);
 
   const APP_NAMES = { whatsapp: 'WhatsApp', sms: 'SMS', calls: 'Calls', call: 'Calls', telegram: 'Telegram', signal: 'Signal',
@@ -135,7 +136,7 @@
         <div id="db-hero">${heroHtml(c, IB.state.phones || [])}</div>
         <div id="db-progress" class="stack" role="status" aria-live="polite" hidden></div>
         <div id="db-tiles">${IB.skeleton('cards', 4)}</div>
-        <div class="tabs db-tabs" id="db-tabs"></div>
+        <div class="db-tabs" id="db-tabs"></div>
         <div class="db-panel" id="db-panel" role="tabpanel"></div>
       </div>`;
       wireHero(view, ctx);
@@ -160,7 +161,7 @@
         const t = tabs.find((x) => x.key === key);
         panel.setAttribute('aria-label', t ? t.label : 'Tab');
         if (!t) { panel.innerHTML = IB.empty('This tab is still being built.'); return; }
-        panel.innerHTML = IB.skeleton('page');
+        panel.innerHTML = IB.skeleton('rows', 6);
         try { await t.render(panel, ctx); } catch (err) { IB.fail(panel, err, () => drawTab(key)); }
       };
       IB.tabs(IB.$('#db-tabs', view), {
@@ -256,8 +257,8 @@
       el.innerHTML = `<div class="stack">
         ${a.updating ? IB.updating(true) : ''}
         <div class="db-two">
-          <div class="card stack"><div class="card-head"><div class="card-title">Messages and calls per month <span class="tiny muted">India time</span></div></div><div id="db-month"></div></div>
-          <div class="card stack"><div class="card-head"><div class="card-title">When activity happens <span class="tiny muted">India time</span></div></div><div id="db-heat"></div></div>
+          <div class="card stack"><div class="card-head"><div class="card-title">Messages and calls per month <span class="tiny muted db-note">India time</span></div></div><div id="db-month"></div></div>
+          <div class="card stack"><div class="card-head"><div class="card-title">When activity happens <span class="tiny muted db-note">India time</span></div></div><div id="db-heat"></div></div>
         </div>
         <div class="db-two">
           <div class="card stack"><div class="card-title">Busiest days</div>

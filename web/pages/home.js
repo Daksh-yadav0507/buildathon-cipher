@@ -56,9 +56,9 @@
         err.textContent = '';
         const done = IB.busy(IB.$('button[type=submit]', form), 'Logging in…');
         try {
-          await IB.api('/api/auth/login', { method: 'POST', body: { name, password }, noLogin: true });
+          const me = await IB.api('/api/auth/login', { method: 'POST', body: { name, password }, noLogin: true });
           done();
-          IB.loggedIn();
+          IB.loggedIn(me);
         } catch (ex) {
           done();
           err.textContent = ex && ex.status === 401 ? (ex.message || WRONG) : ((ex && ex.message) || 'Could not log in. Try again.');
