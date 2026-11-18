@@ -980,3 +980,22 @@ dialog form { display:flex; flex-direction:column; min-height:0; flex:1; margin:
   body { background:#fff; color:#000; }
   .card, .table-wrap, .rec-list { border-color:#ccc; }
 }
+
+/* ------------------------------------------------------------------ shell names app.js uses */
+body.is-bare .side, body.is-bare .top, body.is-bare .pagebar, body.is-bare .limitbar { display:none !important; }
+body.is-bare .frame { margin-left:0; }
+.dlg-msg { margin-top:var(--s-2); }
+.dlg-msg[hidden] { display:none; }
+.drawer-meta { align-items:center; gap:var(--s-2); flex-wrap:wrap; color:var(--text-2); font-size:var(--t-s); }
+.drawer-actions { gap:var(--s-2); flex-wrap:wrap; }
+.progress-text { color:var(--text-2); font-variant-numeric:tabular-nums; }
+.empty-icon { display:inline-flex; color:var(--text-3); }
+.tab-count { margin-left:4px; padding:1px 6px; border-radius:999px; background:var(--surface-2, var(--accent-soft)); color:var(--text-2); font-size:var(--t-xs); font-weight:600; }
+.tab[aria-selected="true"] .tab-count { background:var(--accent-soft); color:var(--text); }
+.more-foot { justify-content:center; padding:var(--s-3) 0; }
+.more-btn[hidden] { display:none; }
+.filters-btn[aria-expanded="true"] { border-color:var(--accent); }
+.side-more > summary { list-style:none; cursor:pointer; }
+.side-more > summary::-webkit-details-marker { display:none; }
+.side-more[open] > summary svg:last-child { transform:rotate(180deg); }
+.side-more > summary svg:last-child { margin-left:auto; transition:transform .15s var(--ease, ease); }
