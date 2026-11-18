@@ -395,8 +395,15 @@ def _money_rows(con, scope_w, scope_p, rng, amounts=None, limit=200) -> list[dic
     rw, rp = "1=1", []
     if rng:
         rw, rp = "m.ts >= ? AND m.ts < ?", [rng["from"], rng["to"]]
-    rows = db.rows(con, f"SELECT m.* FROM money m WHERE m.event_id IN (SELECT e.event_id FROM events e WHERE {w} AND "
-                        f"{scope_w}) AND {rw} ORDER BY m.amount DESC, m.ts LIMIT ?", [*p, *scope_p, *rp, limit * 3])
+    rows = []
+    # Payments the bank or UPI reported come first. An amount that was only said in a chat
+    # ("asli value 18 lakh hai") is not a payment, so it is used only when nothing else is found.
+    for said in ("COALESCE(m.said_in_chat, 0) = 0", "1=1"):
+        rows = db.rows(con, f"SELECT m.* FROM money m WHERE m.event_id IN (SELECT e.event_id FROM events e WHERE {w} AND "
+                            f"{scope_w}) AND {rw} AND {said} ORDER BY m.amount DESC, m.ts LIMIT ?",
+                       [*p, *scope_p, *rp, limit * 3])
+        if rows:
+            break
     if amounts:
         near = [r for r in rows if any(abs((r["amount"] or 0) - a) <= max(1.0, a * 0.01) for a in amounts)]
         if near:

@@ -340,7 +340,8 @@ def compute_story(con) -> dict:
 
     # 3. money
     mrows = db.rows(con, f"SELECT m.money_id, m.event_id, m.ts, m.amount, m.ref, m.method FROM money m "
-                         f"WHERE m.amount IS NOT NULL AND m.event_id IN (SELECT e.event_id FROM events e WHERE {w})", p)
+                         f"WHERE m.amount IS NOT NULL AND COALESCE(m.said_in_chat, 0) = 0 "
+                         f"AND m.event_id IN (SELECT e.event_id FROM events e WHERE {w})", p)
     seen, total, biggest, n_pay = set(), 0.0, None, 0
     for m in mrows:
         key = ("ref", m["ref"]) if m["ref"] else ("id", m["money_id"])
@@ -392,7 +393,8 @@ def compute_story(con) -> dict:
             line = f"The phones were together {_times(len(occ))}"
             line += ", last" if len(occ) > 1 else ","
             if last["place"]:
-                line += f" at {last['place']}"
+                place = last["place"]
+                line += f" {place[0].lower()}{place[1:]}" if place.lower().startswith("near ") else f" at {place}"
             line += f" on {day_words(last['ts'])} at {text.fmt_time(last['ts'])}"
             sentences.append({"key": "together", "text": line + ".", "n": len(occ),
                               "link": link("places", day=text.ist_day(last["ts"])), "event_ids": last["event_ids"]})
