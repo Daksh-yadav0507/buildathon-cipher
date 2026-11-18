@@ -43,8 +43,8 @@ _KNOWN = {"kind", "app", "ts", "direction", "sender", "recipients", "conv", "con
           "duration", "lat", "lon", "place", "media_name", "media_size", "media_sha256", "transcript", "ocr_text",
           "origin", "extra", "id"}
 CHAT_KINDS = {"message"}
-KIND_WORDS = {"message": "messages", "call": "calls", "location": "places", "photo": "photos", "video": "videos",
-              "voice": "voice notes", "document": "documents", "contact": "contacts", "note": "notes"}
+KIND_WORDS = {"message": "message", "call": "call", "location": "place", "photo": "photo", "video": "video",
+              "voice": "voice note", "document": "document", "contact": "contact", "note": "note"}
 
 _case_locks: dict[str, threading.Lock] = {}
 _locks_guard = threading.Lock()
@@ -708,6 +708,29 @@ def ensure_sample_case() -> str | None:
         return SAMPLE_CID
 
 
+def _top_up_sample() -> None:
+    """If the sample phones appeared after start-up, add the missing ones in the background (once at a time)."""
+    if not config.auto_sample() or _sample_lock.locked() or jobs.find(SAMPLE_CID, "ingest"):
+        return
+    if not all(_sample_path(x).exists() for x in SAMPLES):
+        return
+    try:
+        if db.case_exists(SAMPLE_CID):
+            with db.case_db(SAMPLE_CID) as con:
+                if (db.scalar(con, "SELECT COUNT(*) FROM sources WHERE status != 'failed'", default=0) or 0) >= len(SAMPLES):
+                    return
+    except Exception:
+        return
+    threading.Thread(target=_safe_sample, name="ib-sample-top-up", daemon=True).start()
+
+
+def _safe_sample() -> None:
+    try:
+        ensure_sample_case()
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+
+
 # ================================================================ routes: cases
 
 
@@ -728,6 +751,7 @@ def _case_out(case: dict) -> dict:
 
 @router.get("/api/cases")
 def list_cases(officer: dict = Depends(require_officer)):
+    _top_up_sample()
     return [_case_out(c) for c in db.list_cases(officer["officer_id"])]
 
 
@@ -838,7 +862,7 @@ def _source_out(con, s: dict) -> dict:
     counts = {r["kind"]: r["n"] for r in con.execute(
         "SELECT kind, COUNT(*) n FROM events WHERE source_id=? GROUP BY kind", (sid,))}
     s.update({"fingerprint": s.get("sha256"), "counts": counts,
-              "counts_words": [f"{text.group_indian(n)} {KIND_WORDS.get(k, k)}" for k, n in
+              "counts_words": [text.plural(n, KIND_WORDS.get(k, k)) for k, n in
                                sorted(counts.items(), key=lambda kv: -kv[1])],
               "first": text.fmt_date(s["first_ts"]) if s.get("first_ts") else "",
               "last": text.fmt_date(s["last_ts"]) if s.get("last_ts") else "",
