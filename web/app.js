@@ -642,11 +642,14 @@
       restored = true;
       if (back && saved && saved.scroll) {
         const s = saved.scroll;
-        requestAnimationFrame(() => {
+        const put = () => {
           if (!ctx.alive()) return;
           window.scrollTo(0, s.y);
           const v = $('#view'); if (v) v.scrollTop = s.v;
-        });
+        };
+        put();
+        requestAnimationFrame(put);
+        setTimeout(put, 60);
       }
     };
 
@@ -1816,6 +1819,7 @@
   });
 
   D.addEventListener('DOMContentLoaded', () => {
+    try { history.scrollRestoration = 'manual'; } catch (e) { /* older browsers */ }
     setupShell();
     loadHealth();
     route();
