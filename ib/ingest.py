@@ -171,14 +171,15 @@ def sample_info(name: str) -> dict | None:
 # ================================================================ the job
 
 
-def ingest_job(job, cid: str, raw_path: str, added_by: str, sample: str | None = None, delete_after: bool = False):
+def ingest_job(job, cid: str, raw_path: str, added_by: str, sample: str | None = None, delete_after: bool = False,
+               key_questions: bool = True):
     lock = _case_lock(cid)
     if not lock.acquire(blocking=False):
         job.step("Waiting for the other phone to finish")
         lock.acquire()
         job.step_no = 0
     try:
-        return _ingest(job, cid, Path(raw_path), added_by, sample)
+        return _ingest(job, cid, Path(raw_path), added_by, sample, key_questions)
     finally:
         lock.release()
         if delete_after:
@@ -188,7 +189,7 @@ def ingest_job(job, cid: str, raw_path: str, added_by: str, sample: str | None =
                 pass
 
 
-def _ingest(job, cid: str, path: Path, added_by: str, sample: str | None) -> dict:
+def _ingest(job, cid: str, path: Path, added_by: str, sample: str | None, key_questions: bool = True) -> dict:
     # ---- 1. Opening the phone
     job.step(STEPS[0])
     raw = path.read_bytes()
@@ -235,7 +236,7 @@ def _ingest(job, cid: str, path: Path, added_by: str, sample: str | None) -> dic
     finally:
         con.close()
     audit.log(cid, added_by, "phone", f"Added {label}")
-    _after_ingest(job, cid)
+    _after_ingest(job, cid, key_questions)
     return result
 
 
@@ -402,10 +403,12 @@ def _read_records(job, con, cid, sid, phone_no, label, data, owner_ids, owner_na
     return {"source_id": sid, "phone_no": phone_no, "label": label, "records": len(all_rows), "money": n_money}
 
 
-def _after_ingest(job, cid: str) -> None:
+def _after_ingest(job, cid: str, key_questions: bool = True) -> None:
     """Saved Dashboard answers (ib.ready) and the key questions (ib.keyq), when those modules are there."""
     hooks = [("ib.ready", ("refresh_case", "warm", "prepare", "refresh_all")),
-             ("ib.keyq", ("run_after_ingest", "run_auto", "auto_run"))]
+             ("ib.keyq", ("run_after_ingest", "run_auto", "auto_run"))]  # keyq also writes the case brief
+    if not key_questions:
+        hooks = hooks[:1]
     for i, (modname, names) in enumerate(hooks):
         try:
             mod = importlib.import_module(modname)
@@ -597,23 +600,30 @@ def bank_sms(body: str) -> dict | None:
             "counterparty_ident": ("upi:" + vpa.group(1).lower()) if vpa else "", "ref": ref.group(1) if ref else ""}
 
 
+_NOT_MONEY_RE = re.compile(r"^\s*(forwarded|fwd|deal|offer|sale)\b", re.I)
+
+
 def chat_amounts(body: str) -> list[float]:
     """Money said in a chat: '50k', '1.2 lakh', and 'pachaas' or '25' only next to a money word."""
     out = []
+    if _NOT_MONEY_RE.match(body or ""):
+        return out  # forwards and shop offers, not money between people
     toks = [text.fold(t) for t in text.tokens(body)]
     raw_toks = [t.lower() for t in text.tokens(body)]
-    money = {text.fold(w) for w in text.MONEY_WORDS} | set(text.MONEY_WORDS)
+    money = ({text.fold(w) for w in text.MONEY_WORDS} | set(text.MONEY_WORDS)) - {"pani", "chai", "paani"}
+    if "chai pani" in (body or "").lower() or "chai paani" in (body or "").lower():
+        money |= {"pani", "chai", "paani"}
     for a in text.find_amounts(body):
         v = a["value"]
         if a["explicit"]:
             if v >= 10:
                 out.append(v)
             continue
-        if v < 10 or v > 1e9:
-            continue
+        if v < 10 or v >= 100000:
+            continue  # bare long numbers are note numbers, refs or codes, not amounts
         word = text.fold(a["text"].split()[0]) if a["text"] else ""
         idx = next((i for i, t in enumerate(toks) if t == word or raw_toks[i] == a["text"].lower()), None)
-        if idx is None:
+        if idx is None or (idx > 0 and raw_toks[idx - 1] in ("number", "no", "invoice", "flight", "gate", "room", "ward")):
             continue
         near = set(raw_toks[max(0, idx - 3): idx + 4]) | set(toks[max(0, idx - 3): idx + 4])
         if near & money:
@@ -678,8 +688,8 @@ def _index(con, all_rows, job) -> None:
 
 
 def start_ingest(cid: str, path: Path, added_by: str, sample: str | None = None, delete_after: bool = False,
-                 label: str | None = None) -> dict:
-    return jobs.start(cid, "ingest", ingest_job, cid, str(path), added_by, sample, delete_after,
+                 label: str | None = None, key_questions: bool = True) -> dict:
+    return jobs.start(cid, "ingest", ingest_job, cid, str(path), added_by, sample, delete_after, key_questions,
                       label=label or "Adding a phone", steps=STEPS)
 
 
@@ -696,12 +706,11 @@ def ensure_sample_case() -> str | None:
         with db.case_db(SAMPLE_CID) as con:
             have = {(_jl(r["device_info"], {}) or {}).get("sample") for r in
                     db.rows(con, "SELECT device_info FROM sources WHERE status != 'failed'")}
-        for s in SAMPLES:
-            if s in have or not _sample_path(s).exists():
-                continue
+        todo = [s for s in SAMPLES if s not in have and _sample_path(s).exists()]
+        for s in todo:
             info = sample_info(s) or {}
             snap = start_ingest(SAMPLE_CID, _sample_path(s), "Arjun Rao", sample=s,
-                                label=f"Adding {info.get('short_label') or s}")
+                                label=f"Adding {info.get('short_label') or s}", key_questions=(s == todo[-1]))
             done = jobs.wait(snap["id"], timeout=1800)
             if done and done.get("status") == "failed":
                 print(f"[sample] adding {s} failed: {done.get('error')}", file=sys.stderr)
@@ -842,6 +851,10 @@ async def add_source(cid: str, request: Request, acc: CaseAccess = Depends(requi
                 raise ApiError(404, "There is no sample phone by that name.")
             if not _ensure_sample_files() and not _sample_path(sample).exists():
                 raise ApiError(503, "The sample phones are still being made. Try again in a minute.")
+            with db.case_db(cid) as con:
+                for r in db.rows(con, "SELECT label, device_info FROM sources WHERE status != 'failed'"):
+                    if (_jl(r["device_info"], {}) or {}).get("sample") == sample:
+                        raise ApiError(409, f"This sample phone is already in the case, as {r['label']}.")
             info = sample_info(sample) or {}
             return {"job": start_ingest(cid, _sample_path(sample), acc.officer_name, sample=sample,
                                         label=f"Adding {info.get('short_label') or sample}")}
