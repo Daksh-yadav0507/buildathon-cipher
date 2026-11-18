@@ -21,8 +21,8 @@
     .db-tabs .tab { flex: 1 1 0; white-space: normal; text-align: center; }
     .db-panel { min-height: 200px; }
     .db-sentences { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
-    .db-sentences li { font-size: var(--t-lg, 17px); line-height: 1.5; }
-    .db-sentences a { color: inherit; text-decoration: underline; text-decoration-color: var(--line, rgba(127,127,127,.5)); text-underline-offset: 3px; }
+    .db-sentences li { font-size: var(--t-l, 17px); line-height: 1.5; }
+    .db-sentences a { color: inherit; text-decoration: underline; text-decoration-color: var(--border, rgba(127,127,127,.5)); text-underline-offset: 3px; }
     .db-sentences a:hover { text-decoration-color: currentColor; }
     .db-asks { display: flex; flex-wrap: wrap; gap: 8px; }
     .db-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
@@ -33,7 +33,7 @@
     .db-apps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     @media (min-width: 1700px) { .db-apps { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     .db-app { display: flex; gap: 12px; align-items: flex-start; color: inherit; text-decoration: none; height: 100%; }
-    .db-app:hover { border-color: var(--line-strong, rgba(127,127,127,.5)); }
+    .db-app:hover { border-color: var(--text-3, rgba(127,127,127,.5)); }
     .db-fp { display: inline-flex; align-items: center; gap: 6px; }
   `);
 
@@ -113,13 +113,15 @@
 
   /* ---------- Main numbers ---------- */
   function tilesHtml(s) {
+    const L = s.links || {};
+    const to = (key, page, params) => (L[key] ? sentenceHref(L[key]) : IB.link(page, params));
     const deleted = Number(s.deleted) || 0;
     const missed = Number(s.missed != null ? s.missed : (s.calls_missed != null ? s.calls_missed : 0)) || 0;
     return `<div class="db-tiles">
-      ${IB.statTile({ n: num(s.records), label: 'Records', href: IB.link('timeline') })}
-      ${IB.statTile({ n: num(s.messages), label: 'Messages', sub: deleted ? `of which ${num(deleted)} deleted, recovered` : '', href: IB.link('timeline', { kind: 'message' }) })}
-      ${IB.statTile({ n: num(s.calls), label: 'Calls', sub: missed ? `of which ${num(missed)} missed` : '', href: IB.link('calls') })}
-      ${IB.statTile({ n: num(s.people_in_touch), label: 'People in touch', href: IB.link('people') })}
+      ${IB.statTile({ n: num(s.records), label: 'Records', href: to('records', 'timeline') })}
+      ${IB.statTile({ n: num(s.messages), label: 'Messages', sub: deleted ? `of which ${num(deleted)} deleted, recovered` : '', href: to('messages', 'timeline', { kind: 'message' }) })}
+      ${IB.statTile({ n: num(s.calls), label: 'Calls', sub: missed ? `of which ${num(missed)} missed` : '', href: to('calls', 'calls') })}
+      ${IB.statTile({ n: num(s.people_in_touch), label: 'People in touch', href: to('people_in_touch', 'people', { group: 'in-touch' }) })}
     </div>`;
   }
 
@@ -235,7 +237,7 @@
         <div class="card">${list}</div>
         <div class="card stack">
           <div class="card-title">Questions you could ask</div>
-          <div class="db-asks">${ASKS.map((q) => `<button type="button" class="chip" data-ask="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+          <div class="db-asks">${(arr(story && story.questions).length ? arr(story.questions) : ASKS).slice(0, 4).map((q) => `<button type="button" class="chip" data-ask="${esc(q)}">${esc(q)}</button>`).join('')}</div>
         </div>
       </div>`;
     },
@@ -263,11 +265,11 @@
               const key = d.day || d.date || (d.ts ? IB.fmt.dayKey(d.ts) : '');
               const n = Number(d.n != null ? d.n : d.count) || 0;
               const label = key ? IB.fmt.day(key + 'T12:00:00+05:30') : '';
-              return `<a class="db-day" href="${esc(IB.link('timeline', { day: key }))}"><span>${esc(label || key)}</span><span class="num muted">${esc(IB.plural(n, 'record', 'records'))}</span></a>`;
+              return `<a class="db-day" href="${esc(d.link ? sentenceHref(d.link) : IB.link('timeline', { day: key }))}"><span>${esc(label || key)}</span><span class="num muted">${esc(IB.plural(n, 'record', 'records'))}</span></a>`;
             }).join('')}</div>` : IB.empty('No busy days yet.')}
           </div>
           <div class="card stack"><div class="card-title">By app</div>
-            ${IB.charts.hbars(byApp.map((r) => ({ label: appName(r.app), n: r.n, icon: appIcon(r.app, r.kind), href: IB.link('timeline', { app: r.app }) })))}
+            ${IB.charts.hbars(byApp.map((r) => ({ label: (r.name || appName(r.app)) + (byApp.filter((x) => x.app === r.app).length > 1 && r.kind ? ', ' + r.kind + 's' : ''), n: r.n, icon: appIcon(r.app, r.kind), href: r.link ? sentenceHref(r.link) : IB.link('timeline', { app: r.app }) })))}
           </div>
         </div>
       </div>`;
@@ -277,6 +279,8 @@
   });
 
   /* ---------- Tab 3: People ---------- */
+  const pm = (p) => Number(p.messages != null ? p.messages : p.n_messages) || 0;
+  const pc = (p) => Number(p.calls != null ? p.calls : p.n_calls) || 0;
   IB.dashboardTab('people', {
     label: 'People',
     order: 30,
@@ -286,18 +290,18 @@
       const rows = arr(res && (res.rows || res.people || (Array.isArray(res) ? res : [])))
         .filter((p) => !p.is_owner)
         .slice()
-        .sort((x, y) => ((Number(y.n_messages) || 0) + (Number(y.n_calls) || 0)) - ((Number(x.n_messages) || 0) + (Number(x.n_calls) || 0)))
+        .sort((x, y) => (pm(y) + pc(y)) - (pm(x) + pc(x)))
         .slice(0, 10);
       if (!rows.length) { el.innerHTML = IB.empty('No people in touch yet.', { icon: 'users' }); return; }
-      const maxM = Math.max(1, ...rows.map((p) => Number(p.n_messages) || 0));
-      const maxC = Math.max(1, ...rows.map((p) => Number(p.n_calls) || 0));
+      const maxM = Math.max(1, ...rows.map(pm));
+      const maxC = Math.max(1, ...rows.map(pc));
       el.innerHTML = `<div class="card stack">
         <div class="card-head"><div class="card-title">Top 10 people by two-way contact</div><a class="btn small" href="${esc(IB.link('people'))}">See everyone</a></div>
         <div class="table-wrap"><table class="table">
           <thead><tr><th>Name</th><th>Messages</th><th>Calls</th><th>Last contact</th><th>Phones</th></tr></thead>
           <tbody>${rows.map((p) => {
-            const names = arr(p.names).map((n) => (typeof n === 'object' && n ? n.name || n.text : n)).filter((n) => n && n !== p.name);
-            const m = Number(p.n_messages) || 0, cl = Number(p.n_calls) || 0;
+            const names = arr(p.also && p.also.length ? p.also : p.names).map((n) => (typeof n === 'object' && n ? n.name || n.text : n)).filter((n) => n && n !== p.name);
+            const m = pm(p), cl = pc(p);
             const last = p.last_ts || p.last_contact;
             const phones = arr(p.phones || p.sources || p.phone_labels);
             const href = IB.link('person/' + p.person_id);
@@ -326,7 +330,7 @@
       const groups = new Map();
       byApp.forEach((r) => {
         const key = String(r.app || r.kind || 'other');
-        const g = groups.get(key) || { app: key, kinds: [], n: 0, first: null, last: null };
+        const g = groups.get(key) || { app: key, name: r.name, link: r.link, kinds: [], n: 0, first: null, last: null };
         g.n += Number(r.n) || 0;
         if (r.kind) g.kinds.push({ kind: r.kind, n: Number(r.n) || 0 });
         if (r.first_ts && (!g.first || r.first_ts < g.first)) g.first = r.first_ts;
@@ -339,10 +343,11 @@
       el.innerHTML = `<div class="db-apps">${list.map((g, i) => {
         const range = g.first && g.last ? `${IB.fmt.date(g.first)} to ${IB.fmt.date(g.last)}` : '';
         const kinds = g.kinds.length > 1 ? g.kinds.map((k) => IB.plural(k.n, k.kind, k.kind + 's')).join(', ') : '';
-        return `<a class="card db-app" href="${esc(IB.link('timeline', { app: g.app }))}">
+        const href = g.kinds.length === 1 && g.link ? sentenceHref(g.link) : IB.link('timeline', { app: g.app });
+        return `<a class="card db-app" href="${esc(href)}">
           ${IB.tile(appIcon(g.app, g.kinds[0] && g.kinds[0].kind), tones[i % tones.length])}
           <div class="stack" style="gap:4px;min-width:0">
-            <div class="card-title">${esc(appName(g.app))}</div>
+            <div class="card-title">${esc(g.name || appName(g.app))}</div>
             <div class="num">${esc(IB.plural(g.n, 'record', 'records'))}</div>
             ${kinds ? `<div class="tiny muted clamp-2">${esc(kinds)}</div>` : ''}
             ${range ? `<div class="tiny muted">${esc(range)}</div>` : ''}

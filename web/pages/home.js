@@ -7,18 +7,18 @@
 
   IB.css('ib-home', `
     .hm-login { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 40px 16px;
-      background: var(--hero-bg, #0f1b2e); color: var(--hero-ink, #eef2f8); }
+      background: var(--hero-bg, #0f1b2e); color: var(--on-strong, #eef2f8); }
     .hm-login .card { width: 400px; max-width: 100%; display: flex; flex-direction: column; gap: 16px; padding: 28px; }
     .hm-login .hm-brand { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
     .hm-login .hm-brand h2 { margin: 0; font-size: var(--t-xl, 22px); }
-    .hm-login .hm-err { color: var(--danger, #c0392b); font-size: 14px; }
+    .hm-login .hm-err { color: var(--critical, #c0392b); font-size: 14px; }
     .hm-login .hm-err:empty { display: none; }
     .hm-login .btn.primary { width: 100%; justify-content: center; }
     .hm-foot { font-size: 13px; opacity: .8; }
     .hm-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     @media (min-width: 1700px) { .hm-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     .hm-case { display: flex; flex-direction: column; gap: 10px; height: 100%; }
-    .hm-case .hm-name { font-weight: 700; font-size: var(--t-lg, 17px); margin: 0; }
+    .hm-case .hm-name { font-weight: 700; font-size: var(--t-l, 17px); margin: 0; }
     .hm-case .hm-meta { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .hm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .hm-about-keys { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; }
