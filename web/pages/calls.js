@@ -21,9 +21,9 @@
 
   function marks(r) {
     const out = [];
-    const list = Array.isArray(r.marks) ? r.marks : (Array.isArray(r.across) ? r.across : []);
+    const list = Array.isArray(r.marks) ? r.marks : (Array.isArray(r.across) ? r.across : (r.across ? [r.across] : []));
     list.forEach((m) => {
-      if (typeof m === 'string') out.push({ text: m, tone: 'orange' });
+      if (typeof m === 'string') out.push({ text: m });
       else if (m && m.text) out.push(m);
     });
     if (r.missing_on) {
@@ -34,21 +34,23 @@
     if (r.other_duration_s != null && r.other_phone) {
       out.push({ text: `Different length on ${phoneName(r.other_phone)}: ${IB.fmt.duration(r.other_duration_s)}`, tone: 'orange' });
     }
-    return out.map((m) => `<span class="chip status serious"${m.tip ? ` data-tip="${esc(m.tip)}"` : ''}>${esc(m.text)}</span>`).join('');
+    return out.map((m) => (m.mark === 'same'
+      ? `<span class="pill tone-teal"${m.event_id ? ` data-eid="${esc(m.event_id)}"` : ''}>${esc(m.text)}</span>`
+      : `<span class="chip status serious"${m.tip ? ` data-tip="${esc(m.tip)}"` : ''}>${esc(m.text)}</span>`)).join('');
   }
 
   function dirCell(r) {
-    const missed = r.status === 'missed' || r.status === 'rejected' || r.type === 'missed';
+    const missed = r.call_type === 'missed' || r.status === 'missed' || r.status === 'rejected';
     if (missed) return `<span class="call-dir missed">${IB.icon('missed', 16)} ${r.status === 'rejected' ? 'Rejected' : 'Missed'}</span>`;
     if (r.direction === 'out') return `<span class="call-dir">${IB.icon('arrow-out', 16)} Outgoing</span>`;
     return `<span class="call-dir">${IB.icon('arrow-in', 16)} Incoming</span>`;
   }
 
   function row(r) {
-    const name = r.person_name || r.name || (r.direction === 'out' ? (r.recipient_names || r.conv_title) : r.sender_name) || '';
+    const name = r.other_name || r.person_name || r.name || (r.direction === 'out' ? (r.recipient_names || r.conv_title) : r.sender_name) || '';
     const nameText = Array.isArray(name) ? name.join(', ') : name;
-    const number = r.number || r.phone_no || r.ident || (r.direction === 'out' ? (Array.isArray(r.recipients) ? r.recipients[0] : '') : r.sender) || '';
-    const status = r.status && r.status !== 'missed' ? IB.statusChip(r.status) : '';
+    const number = r.other_number || r.number || r.phone_no || r.ident || (r.direction === 'out' ? (Array.isArray(r.recipients) ? r.recipients[0] : '') : r.sender) || '';
+    const status = r.status && r.status !== 'missed' && r.status !== 'rejected' ? IB.statusChip(r.status) : '';
     const phone = r.phone_label || r.source_id;
     return `<tr class="clickable" tabindex="0" data-eid="${esc(r.event_id)}">
       <td class="num">${esc(IB.fmt.time(r.ts))}</td>
@@ -56,7 +58,7 @@
       <td class="call-person"><b>${esc(nameText || number || 'Unknown')}</b>${nameText && number && number !== nameText ? `<div class="tiny muted num">${esc(number)}</div>` : ''}
         ${(() => { const m = marks(r); return m ? `<div class="call-marks">${m}</div>` : ''; })()}</td>
       <td>${r.app ? IB.appChip(r.app) : ''}</td>
-      <td class="num">${r.duration_s ? esc(IB.fmt.duration(r.duration_s)) : '<span class="muted">0 s</span>'}</td>
+      <td class="num">${r.duration_s ? esc(r.length || IB.fmt.duration(r.duration_s)) : '<span class="muted">0 s</span>'}</td>
       <td>${status}</td>
       <td>${phone != null && phone !== '' ? IB.phoneChip(phone) : ''}</td>
     </tr>`;

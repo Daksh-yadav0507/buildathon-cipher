@@ -27,7 +27,7 @@
         try {
           const r = await ctx.capi('/records/' + encodeURIComponent(eid));
           const rec = (r && (r.record || r)) || {};
-          if (rec.ts) q.to = IB.fmt.dayKey(rec.ts);
+          if (rec.ts) ctx.setQuery({ to: IB.fmt.dayKey(rec.ts) });
         } catch (e) { /* the drawer shows its own error; draw the whole timeline */ }
       }
 

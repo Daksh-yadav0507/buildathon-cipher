@@ -37,7 +37,7 @@
   };
   const phoneFull = (p) => {
     if (p == null) return '';
-    if (typeof p === 'object' && p.label) return p.label;
+    if (typeof p === 'object' && (p.label || p.phone_label)) return p.label || p.phone_label;
     const id = typeof p === 'object' ? p.source_id : p;
     const ph = (IB.state.phones || []).find((x) => String(x.source_id) === String(id));
     return ph ? ph.label : phoneName(p);
@@ -48,7 +48,7 @@
   function chatRow(c, activeId) {
     const title = c.title || names(c.participants).join(', ') || 'Unnamed chat';
     const last = c.last || c.last_message || {};
-    const lastText = (typeof last === 'string' ? last : (last.body || last.transcript || last.media_name || '')) || c.last_body || c.snippet || '';
+    const lastText = (typeof last === 'string' ? last : (last.preview || last.body || last.transcript || last.media_name || '')) || c.last_body || c.snippet || '';
     const lastTs = c.last_ts || last.ts;
     const n = c.n_messages != null ? c.n_messages : c.messages;
     const del = c.n_deleted || c.deleted || 0;
@@ -106,16 +106,22 @@
     if (t) return t;
     const del = phoneList(m.deleted_on);
     if (del.length) return 'Deleted on ' + del.map(phoneName).join(' and ');
+    if (Array.isArray(m.also_on)) {
+      const all = [m.phone_label || m.source_id].concat(m.also_on.map((o) => o.phone_label || o.source_id));
+      if (m.also_on.length) return 'On ' + all.map(phoneName).join(' and ');
+      if (all[0] != null && all[0] !== '') return 'Only on ' + phoneName(all[0]);
+    }
     const on = phoneList(m.on || m.on_phones || m.sources || m.copies);
     if (on.length > 1) return 'On ' + on.map(phoneName).join(' and ');
     if (on.length === 1) return 'Only on ' + phoneName(on[0]);
     const only = m.only_on;
     if (only != null && only !== '') return 'Only on ' + phoneName(only);
+    if (m.phone_label || m.source_id != null) return 'Only on ' + phoneName(m.phone_label || m.source_id);
     return '';
   }
 
   function bubble(m, ctx2) {
-    const out = m.direction === 'out';
+    const out = m.mine != null ? !!m.mine : m.direction === 'out';
     const status = String(m.status || '');
     const sender = m.sender_name || m.sender || '';
     const body = m.body || '';
@@ -238,7 +244,8 @@
         const msgs = listOf(r, 'messages', 'rows', 'records');
         if (r && !Array.isArray(r)) {
           st.conv = Object.assign({}, st.conv, r.conv || r.conversation || {});
-          if (r.both || r.sides) st.bothInfo = r.both || r.sides;
+          st.bothInfo = r.both && r.both.on ? r.both : null;
+          if (r.can_show_both != null) st.canBoth = !!r.can_show_both;
           if (r.also_on) st.conv.also_on = r.also_on;
         }
         const flag = (keys, dflt) => { for (const k of keys) if (r && r[k] != null) return !!r[k]; return dflt; };
@@ -268,7 +275,7 @@
         for (const m of st.msgs) {
           const d = IB.fmt.dayKey(m.ts);
           if (d !== day) { day = d; prev = null; html += `<div class="th-day"><span>${esc(IB.fmt.date(m.ts))}</span></div>`; }
-          const who = (m.direction || '') + '|' + (m.sender || m.sender_name || '');
+          const who = (m.mine != null ? (m.mine ? 'out' : 'in') : (m.direction || '')) + '|' + (m.sender_name || m.sender || '');
           html += bubble(m, { look, group, both: st.both, first: who !== prev });
           prev = who;
         }
@@ -280,12 +287,12 @@
         const c = st.conv;
         const look = lookOf(c.app || (st.msgs[0] && st.msgs[0].app));
         const title = c.title || names(c.participants).join(', ') || 'Chat';
-        const parts = names(c.participants);
+        const parts = names(c.participant_names && c.participant_names.length ? c.participant_names : c.participants);
         const n = c.n_messages != null ? c.n_messages : st.msgs.length;
         const first = c.first_ts || (st.msgs[0] && st.msgs[0].ts);
         const last = c.last_ts || (st.msgs.length && st.msgs[st.msgs.length - 1].ts);
         const also = phoneList(c.also_on || c.other_phones);
-        const canBoth = also.length > 0 || !!c.both_available || (IB.state.phones || []).length > 1;
+        const canBoth = st.canBoth != null ? st.canBoth : (also.length > 0 || (IB.state.phones || []).length > 1);
         const here = c.phone_label || c.source_id;
         const otherLabels = also.length ? also.map(phoneFull) : (IB.state.phones || []).filter((p) => String(p.source_id) !== String(c.source_id)).map((p) => p.label);
         pane.innerHTML = `
@@ -314,7 +321,7 @@
             </div>
           </header>
           ${st.both ? `<div class="th-banner" role="status">${IB.icon('arrows-left-right', 16)}
-            <span class="grow">Showing both sides: ${esc([phoneFull(here)].concat(otherLabels).filter(Boolean).join(' and '))}. Each message is shown once.</span>
+            <span class="grow">${esc((st.bothInfo && st.bothInfo.banner) || ('Showing both sides: ' + [phoneFull(here)].concat(otherLabels).filter(Boolean).join(' and ') + '. Each message is shown once.'))}</span>
             <button type="button" class="btn small" id="th-one">Back to this phone's copy</button></div>` : ''}
           <div class="th-scroll" id="th-scroll" data-look="${look}" tabindex="-1">
             <div class="th-msgs" id="th-msgs">${st.msgs.length ? msgsHtml(st) : ''}</div>
