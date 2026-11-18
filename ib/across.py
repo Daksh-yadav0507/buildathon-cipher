@@ -558,3 +558,322 @@ def get_across(cid: str) -> dict:
 @router.get("/api/cases/{cid}/across")
 def across(cid: str, acc: CaseAccess = Depends(require_case)):
     return get_across(acc.cid)
+
+
+# ============================================================== 1. both sides of the same chat
+
+
+def _fallback_thread(ctx: Ctx, conv: dict) -> str | None:
+    """A one-to-one chat with no thread key: the app plus the sorted pair of people, when both own a phone here."""
+    if conv["is_group"]:
+        return None
+    people = {ctx.person(str(x)) for x in _json_list(conv["participants"])} - {None}
+    people.add(ctx.owner_of.get(conv["source_id"]))
+    people.discard(None)
+    if len(people) != 2 or not all(p in ctx.source_of_owner for p in people):
+        return None
+    return f"auto:{(conv['app'] or '').lower()}:" + ":".join(str(p) for p in sorted(people))
+
+
+def _who(ctx: Ctx, m: dict) -> Any:
+    if m["sender"]:
+        pid = ctx.person(m["sender"])
+        return ("p", pid) if pid is not None else ("k", _key(m["sender"]))
+    if (m["direction"] or "") == "out":
+        return ("p", ctx.owner_of.get(m["source_id"]))
+    return ("?", None)
+
+
+_APP_WORDS = {"whatsapp": "WhatsApp", "sms": "SMS", "telegram": "Telegram", "signal": "Signal", "imessage": "iMessage"}
+
+
+def check_chats(ctx: Ctx) -> list[dict]:
+    con, w, p = ctx.con, ctx.w, ctx.p
+    convs = db.rows(con, "SELECT conv_id, source_id, app, title, is_group, participants, thread_key FROM conversations")
+    threads: dict[str, list[dict]] = {}
+    for c in convs:
+        if c["source_id"] not in ctx.phones:
+            continue
+        k = c["thread_key"] or _fallback_thread(ctx, c)
+        if k:
+            threads.setdefault(k, []).append(c)
+    out = []
+    for key, copies in threads.items():
+        owners = {ctx.owner_of.get(c["source_id"], -c["source_id"]) for c in copies}
+        if len({c["source_id"] for c in copies}) < 2 or len(owners) < 2:
+            continue
+        row = _thread_row(ctx, key, copies, w, p)
+        if row:
+            out.append(row)
+    out.sort(key=lambda r: (-(r["n_deleted_elsewhere"] + r["n_only_one"]), -sum(c["n_messages"] for c in r["copies"])))
+    return out[:MAX_ROWS]
+
+
+def _thread_row(ctx: Ctx, key: str, copies: list[dict], w: str, p: list) -> dict | None:
+    ids = [c["conv_id"] for c in copies]
+    ph = ",".join("?" * len(ids))
+    msgs = db.rows(ctx.con, f"""
+        SELECT e.event_id, e.source_id, e.conv_id, e.ts, e.sender, e.direction, e.body, e.media_name, e.status
+        FROM events e WHERE {w} AND e.conv_id IN ({ph}) AND e.ts IS NOT NULL ORDER BY e.ts""", [*p, *ids])
+    if not msgs:
+        return None
+    sources = sorted({c["source_id"] for c in copies})
+    first_ts = {s: min((m["ts"] for m in msgs if m["source_id"] == s), default=None) for s in sources}
+    merged: list[dict] = []
+    open_by_who: dict[Any, list[dict]] = {}
+    for m in msgs:
+        who = _who(ctx, m)
+        words = text.fold_text(m["body"] or m["media_name"] or "")
+        cands = open_by_who.setdefault(who, [])
+        hit = None
+        for item in reversed(cands):
+            if m["ts"] - item["ts"] > CHAT_WINDOW_MS:
+                break
+            if m["source_id"] in item["holders"]:
+                continue
+            if item["words"] == words or not words or not item["words"]:
+                hit = item
+                break
+        if hit is None:
+            hit = {"ts": m["ts"], "words": words, "holders": {}}
+            merged.append(hit)
+            cands.append(hit)
+        elif not hit["words"]:
+            hit["words"] = words
+        hit["holders"][m["source_id"]] = m
+    only_one, deleted_elsewhere = [], []
+    for item in merged:
+        held = item["holders"]
+        gone = [s for s, m in held.items() if (m["status"] or "") in ("deleted", "unsent")]
+        kept = [s for s, m in held.items() if (m["status"] or "") not in ("deleted", "unsent")]
+        if gone and kept:
+            for s in gone:
+                m, k = held[s], held[kept[0]]
+                deleted_elsewhere.append({
+                    "event_id": m["event_id"], "kept_event_id": k["event_id"], "ts": m["ts"], "when": text.fmt_when(m["ts"]),
+                    "deleted_on": _phone_ref(ctx, s), "kept_on": _phone_ref(ctx, kept[0]),
+                    "body": (k["body"] or m["body"] or k["media_name"] or "")[:200],
+                    "mark": f"Deleted on {ctx.phones[s]['short']}"})
+        if ctx.limit_on:
+            continue
+        missing = [s for s in sources if s not in held and first_ts.get(s) is not None
+                   and first_ts[s] < item["ts"] < (ctx.phones[s]["last_ts"] or 0)]
+        if missing:
+            s0 = next(iter(held))
+            m = held[s0]
+            only_one.append({"event_id": m["event_id"], "ts": m["ts"], "when": text.fmt_when(m["ts"]),
+                             "on": [_phone_ref(ctx, s) for s in held], "not_on": [_phone_ref(ctx, s) for s in missing],
+                             "body": (m["body"] or m["media_name"] or "")[:200],
+                             "mark": "Only on " + " and ".join(ctx.phones[s]["short"] for s in held)})
+    counts = []
+    for c in copies:
+        mine = [m for m in msgs if m["conv_id"] == c["conv_id"]]
+        counts.append({"phone": _phone_ref(ctx, c["source_id"]), "conv_id": c["conv_id"], "title": c["title"],
+                       "n_messages": len(mine),
+                       "n_deleted": sum(1 for m in mine if (m["status"] or "") == "deleted")})
+    titles = []
+    for c in copies:
+        if c["title"] and c["title"] not in titles:
+            titles.append(c["title"])
+    app = copies[0]["app"] or ""
+    holds = ", ".join(f"{x['phone']['label'].split(' | ')[0]} holds {text.plural(x['n_messages'], 'message')}" for x in counts)
+    worth = []
+    if deleted_elsewhere:
+        by = {}
+        for d in deleted_elsewhere:
+            by.setdefault((d["deleted_on"]["phone_no"], d["kept_on"]["phone_no"]), 0)
+            by[(d["deleted_on"]["phone_no"], d["kept_on"]["phone_no"])] += 1
+        worth += [f"{n} deleted on Phone {a} and still on Phone {b}" for (a, b), n in by.items()]
+    if only_one:
+        worth.append(f"{text.plural(len(only_one), 'message')} on one phone only")
+    app_words = _APP_WORDS.get(app.lower(), app.capitalize())
+    sentence = f"{' / '.join(titles) or 'A chat'} ({app_words}): {holds}."
+    if worth:
+        line = "; ".join(worth)
+        sentence += " " + line[:1].upper() + line[1:] + "."
+    ev = [d["event_id"] for d in deleted_elsewhere[:15]] + [d["kept_event_id"] for d in deleted_elsewhere[:15]]
+    ev += [o["event_id"] for o in only_one[:15]]
+    if not ev:
+        ev = [m["event_id"] for m in msgs[:5]]
+    return {
+        "kind": "chat", "thread_key": key, "title": " / ".join(titles), "app": app,
+        "is_group": bool(copies[0]["is_group"]), "copies": counts,
+        "phones": [_phone_ref(ctx, s) for s in sources], "conv_ids": ids,
+        "open": {"page": "chats", "conv_id": copies[0]["conv_id"], "both": 1},
+        "n_deleted_elsewhere": len(deleted_elsewhere), "n_only_one": len(only_one),
+        "deleted_elsewhere": deleted_elsewhere[:100], "only_one": only_one[:50],
+        "ts": msgs[0]["ts"], "last_ts": msgs[-1]["ts"], "text": sentence, "event_ids": ev,
+    }
+
+
+# ============================================================== 4. the same file on several phones
+
+
+def _size_words(n) -> str:
+    if not n:
+        return ""
+    n = float(n)
+    if n >= 1024 * 1024:
+        return f"{n / 1024 / 1024:.1f} MB"
+    return f"{n / 1024:.0f} KB"
+
+
+def check_files(ctx: Ctx) -> list[dict]:
+    con, w, p = ctx.con, ctx.w, ctx.p
+    rows = db.rows(con, f"""
+        SELECT e.media_sha256 AS sha, e.event_id, e.source_id, e.ts, e.media_name, e.media_size, e.kind, e.direction,
+               e.sender, e.conv_id, e.ocr_text
+        FROM events e
+        WHERE {w} AND e.media_sha256 IS NOT NULL AND e.media_sha256 != ''
+          AND (e.media_size IS NULL OR e.media_size >= ?)
+          AND e.media_sha256 IN (SELECT media_sha256 FROM events WHERE media_sha256 IS NOT NULL AND media_sha256 != ''
+                                 GROUP BY media_sha256 HAVING COUNT(DISTINCT source_id) >= 2)
+        ORDER BY e.ts""", [*p, FILE_MIN_BYTES])
+    groups: dict[str, list[dict]] = {}
+    for r in rows:
+        if r["source_id"] in ctx.phones:
+            groups.setdefault(r["sha"], []).append(r)
+    out = []
+    for sha, items in groups.items():
+        srcs = []
+        for r in items:
+            if r["source_id"] not in srcs:
+                srcs.append(r["source_id"])
+        if len(srcs) < 2:
+            continue
+        first = items[0]
+        name = next((r["media_name"] for r in items if r["media_name"]), "A file")
+        size = next((r["media_size"] for r in items if r["media_size"]), None)
+        holders = []
+        for r in items:
+            frm = ctx.person(r["sender"]) if r["sender"] else None
+            holders.append({"phone": _phone_ref(ctx, r["source_id"]), "event_id": r["event_id"], "ts": r["ts"],
+                            "when": text.fmt_when(r["ts"]), "name": r["media_name"], "direction": r["direction"],
+                            "from": ctx.name(frm) if frm is not None else "", "conv_id": r["conv_id"]})
+        steps = []
+        seen = {first["source_id"]}
+        for r in items[1:]:
+            if r["source_id"] in seen:
+                continue
+            seen.add(r["source_id"])
+            steps.append(f"then on {ctx.phones[r['source_id']]['label']} ({text.gap_words(r['ts'] - first['ts'])} later)")
+        kind = first["kind"] or "file"
+        bits = ", ".join(x for x in (kind, _size_words(size)) if x)
+        sentence = (f"{name} ({bits}) was first on {ctx.phones[first['source_id']]['label']} ({text.fmt_when(first['ts'])}), "
+                    + ", ".join(steps) + ".")
+        ocr = next((r["ocr_text"] for r in items if r["ocr_text"]), "")
+        out.append({
+            "kind": "file", "sha256": sha, "name": name, "size": size, "size_words": _size_words(size),
+            "file_kind": kind, "first_phone": _phone_ref(ctx, first["source_id"]), "ts": first["ts"],
+            "when": text.fmt_when(first["ts"]), "day": text.ist_day(first["ts"]),
+            "phones": [_phone_ref(ctx, s) for s in srcs], "holders": holders, "words_in_it": (ocr or "")[:300],
+            "text": sentence, "event_ids": [h["event_id"] for h in holders],
+        })
+    out.sort(key=lambda r: (-len(r["phones"]), r["ts"]))
+    return out[:MAX_ROWS]
+
+
+# ============================================================== 6. how each phone saved the others
+
+
+def _allowed_ids(ctx: Ctx, ids: list[str]) -> set[str]:
+    if not ctx.limit_on:
+        return set(ids)
+    if not ids:
+        return set()
+    ph = ",".join("?" * len(ids))
+    return {r["event_id"] for r in ctx.con.execute(
+        f"SELECT e.event_id FROM events e WHERE {ctx.w} AND e.event_id IN ({ph})", [*ctx.p, *ids])}
+
+
+def check_names(ctx: Ctx) -> tuple[list[dict], list[dict]]:
+    people = db.rows(ctx.con, "SELECT person_id, name, names, is_owner, kind FROM persons WHERE names IS NOT NULL AND names != ''")
+    entries = []
+    for pr in people:
+        for n in _json_list(pr["names"]):
+            if not isinstance(n, dict) or (n.get("how") or "") != "contact" or not n.get("name"):
+                continue
+            sid = n.get("source_id")
+            if sid not in ctx.phones:
+                continue
+            entries.append((pr, sid, str(n["name"]), n.get("event_id")))
+    allowed = _allowed_ids(ctx, [e[3] for e in entries if e[3]])
+    entries = [e for e in entries if (e[3] in allowed) if e[3]] + ([e for e in entries if not e[3]] if not ctx.limit_on else [])
+    names, seen, several = [], set(), {}
+    for pr, sid, saved, eid in entries:
+        pid = pr["person_id"]
+        if pid in ctx.source_of_owner and ctx.owner_of.get(sid) != pid:
+            k = (sid, pid, saved.lower())
+            if k in seen:
+                continue
+            seen.add(k)
+            theirs = ctx.source_of_owner[pid]
+            names.append({
+                "kind": "name", "saved_on": _phone_ref(ctx, sid), "person_id": pid, "owner_name": pr["name"],
+                "their_phones": [_phone_ref(ctx, s) for s in theirs], "saved_as": saved, "event_id": eid,
+                "text": f"{ctx.phones[sid]['label']} saved {pr['name']} ({ctx.phones[theirs[0]]['short']}) as \"{saved}\"",
+                "event_ids": [eid] if eid else [],
+            })
+        if pid not in ctx.source_of_owner:
+            several.setdefault(pid, {"pr": pr, "saved": {}})["saved"].setdefault(sid, (saved, eid))
+    names.extend(_names_from_contacts(ctx, {(n["saved_on"]["source_id"], n["person_id"]) for n in names}))
+    names.sort(key=lambda n: (n["saved_on"]["phone_no"], n["owner_name"] or ""))
+    known = []
+    for pid, v in several.items():
+        if len(v["saved"]) < 2:
+            continue
+        saved = [{"phone": _phone_ref(ctx, s), "saved_as": nm, "event_id": e} for s, (nm, e) in sorted(v["saved"].items())]
+        phones = " and ".join(ctx.phones[s]["short"] for s in sorted(v["saved"]))
+        as_words = " and ".join(f"\"{x['saved_as']}\"" for x in saved)
+        known.append({"kind": "known", "person_id": pid, "name": v["pr"]["name"], "saved": saved,
+                      "phones": [x["phone"] for x in saved],
+                      "text": f"{v['pr']['name']} is in the contacts of {phones} (as {as_words})",
+                      "event_ids": [x["event_id"] for x in saved if x["event_id"]]})
+    known.sort(key=lambda k: (-len(k["saved"]), k["name"] or ""))
+    return names[:MAX_ROWS], known[:MAX_ROWS]
+
+
+def _names_from_contacts(ctx: Ctx, done: set) -> list[dict]:
+    """When the people table carries no contact names, read the phones' own contact records."""
+    want = {}
+    for r in ctx.con.execute("SELECT ident, person_id FROM identifiers"):
+        if r["person_id"] in ctx.source_of_owner:
+            d = text.digits(r["ident"])[-10:]
+            if len(d) == 10:
+                want[d] = r["person_id"]
+    if not want:
+        return []
+    rows = db.rows(ctx.con, f"""
+        SELECT e.event_id, e.source_id, e.body, e.sender, e.recipients, e.extra FROM events e
+        WHERE {ctx.w} AND e.kind = 'contact' LIMIT 20000""", ctx.p)
+    out = []
+    for r in rows:
+        sid = r["source_id"]
+        if sid not in ctx.phones:
+            continue
+        blob = " ".join(str(x or "") for x in (r["sender"], r["recipients"], r["extra"], r["body"]))
+        nums = {text.digits(x)[-10:] for x in __import__("re").findall(r"\+?\d[\d \-]{8,}\d", blob)}
+        for d in nums:
+            pid = want.get(d)
+            if pid is None or ctx.owner_of.get(sid) == pid or (sid, pid) in done:
+                continue
+            saved = ""
+            try:
+                ex = json.loads(r["extra"]) if r["extra"] else {}
+                saved = ex.get("name") or ex.get("display") or ""
+            except (TypeError, ValueError, AttributeError):
+                saved = ""
+            saved = saved or (r["body"] or "").split("\n")[0].strip()
+            if not saved:
+                continue
+            done.add((sid, pid))
+            theirs = ctx.source_of_owner[pid]
+            out.append({"kind": "name", "saved_on": _phone_ref(ctx, sid), "person_id": pid, "owner_name": ctx.name(pid),
+                        "their_phones": [_phone_ref(ctx, s) for s in theirs], "saved_as": saved, "event_id": r["event_id"],
+                        "text": f"{ctx.phones[sid]['label']} saved {ctx.name(pid)} ({ctx.phones[theirs[0]]['short']}) as \"{saved}\"",
+                        "event_ids": [r["event_id"]]})
+    return out
+
+
+_MORE.update({"chats": check_chats, "files": check_files, "names": check_names})
+_MORE_EXTRA.update({"names": "known_by_several"})
