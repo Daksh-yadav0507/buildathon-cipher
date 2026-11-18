@@ -319,7 +319,7 @@
       return;
     }
     const name = (state.case && state.case.name) || 'This case';
-    sc.innerHTML = `<a class="side-case-name clamp-2" href="${esc(link(''))}" data-tip="Open this case's Dashboard">${esc(name)}</a>`
+    sc.innerHTML = `<a class="side-case-name name clamp-2" href="${esc(link(''))}" data-tip="Open this case's Dashboard">${esc(name)}</a>`
       + `<a class="side-all small" href="#/">${icon('arrow-left', 14)}<span>All cases</span></a>`;
     const activeTab = tab === 'person' ? 'people' : tab;
     const moreOn = MORE.some((m) => m.tab === activeTab);
@@ -830,7 +830,7 @@
     const i = phoneInfo(p);
     const tone = i.n ? ` p${((i.n - 1) % 3) + 1}` : '';
     const lead = i.n ? `Phone ${i.n}` : 'Phone';
-    const tail = i.name && i.name !== lead ? `<span class="chip-sep" aria-hidden="true"></span><span class="chip-l">${esc(i.name)}</span>` : '';
+    const tail = i.name && i.name !== lead ? `<span class="chip-l">${esc(i.name)}</span>` : '';
     return `<span class="chip phone${tone}"${i.phoneNo ? ` data-tip="${esc(i.phoneNo)}"` : ''}><span class="chip-n">${esc(lead)}</span>${tail}</span>`;
   }
   function phoneChips(list) { return (list || []).map(phoneChip).join(' '); }
