@@ -909,7 +909,7 @@
     const from = rec.sender_name || rec.sender || '';
     const to = rec.recipient_names || rec.conv_title || '';
     const toText = Array.isArray(to) ? to.join(', ') : to;
-    if (from && toText) return `${esc(from)} <span class="muted" aria-label="to">→</span> ${esc(toText)}`;
+    if (from && toText) return `${esc(from)} <span class="who-to" role="img" aria-label="to">${icon('arrow-right', 14)}</span> ${esc(toText)}`;
     return esc(from || toText);
   }
   function recordRow(rec, o) {

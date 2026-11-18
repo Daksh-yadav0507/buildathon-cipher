@@ -73,9 +73,9 @@
     const phones = Array.isArray(c.phones) ? c.phones : [];
     const href = '#/c/' + encodeURIComponent(c.case_id);
     const bits = [IB.plural(Number(c.records) || 0, 'record', 'records')];
+    if (c.number) bits.unshift('Case ' + c.number);
     if (c.last_opened) bits.push('last opened ' + IB.fmt.time(c.last_opened));
     return `<div class="card hm-case">
-      ${c.number ? `<div class="caps tiny muted">Case ${esc(c.number)}</div>` : ''}
       <h3 class="hm-name">${esc(c.name || 'Untitled case')}</h3>
       ${c.about ? `<p class="muted small clamp-2" style="margin:0">${esc(c.about)}</p>` : ''}
       <div class="row" style="flex-wrap:wrap">${phones.length ? IB.phoneChips(phones) : '<span class="muted small">No phones added yet</span>'}</div>

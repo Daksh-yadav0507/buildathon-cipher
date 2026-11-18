@@ -249,7 +249,7 @@
         }).join('');
         return `<section class="card br-sec">
           <div class="card-title">${i + 1}. ${esc(title)}</div>
-          ${items ? `<ol>${items}</ol>` : '<p class="muted small">Nothing in the records for this section.</p>'}
+          ${items ? `<ol>${items}</ol>` : '<p class="muted small">Nothing found in the records.</p>'}
         </section>`;
       }).join('');
     }
