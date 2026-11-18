@@ -612,6 +612,12 @@
       state.case = null; state.stats = null; state.phones = []; state.limit = {}; state.jobs = []; state.flagged = new Set();
       if (r.cid) { refreshCase(); refreshJobs(); }
     }
+    /* Pages read IB.state.phones and stats (tabs, chips, marks): wait for the case once, at most 5 s. */
+    if (r.cid && caseLoading && !state.stats) {
+      loadline(1);
+      try { await Promise.race([caseLoading.catch(() => {}), new Promise((ok) => setTimeout(ok, 5000))]); } finally { loadline(-1); }
+      if (my !== seq) return;
+    }
 
     closeDrawer(true);
     closePop();
