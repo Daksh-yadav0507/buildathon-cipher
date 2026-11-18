@@ -27,3 +27,6 @@ Thumbs.db
 
 # lockfiles are generated (RULES.md 2.4)
 package-lock.json
+
+# App data (cases, officers, samples): made at first run, never committed
+data/
