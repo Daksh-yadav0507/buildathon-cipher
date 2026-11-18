@@ -224,10 +224,11 @@ def ai_choice(con, lists: list[dict]) -> dict[str, str] | None:
 def auto_choose(con) -> None:
     """Set the automatic choice for every list the officers haven't chosen for themselves."""
     lists = all_lists()
-    picked = ai_choice(con, lists)
-    if picked is None:
-        picked = keyword_choice(con)
-        picked.update(own_list_choice(con, lists))
+    picked = keyword_choice(con)
+    picked.update(own_list_choice(con, lists))
+    ai = ai_choice(con, lists)
+    if ai:
+        picked.update(ai)  # the AI's reasons win; lists the words clearly point to stay on as well
     picked[EVERY] = "Runs on every phone."
     ch = _choices(con)
     for lst in lists:
