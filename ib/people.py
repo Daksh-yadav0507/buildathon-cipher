@@ -303,6 +303,45 @@ def _in_scope(con, w: str, p: list, eids: list[str]) -> set[str]:
     return {r[0] for r in con.execute(f"SELECT e.event_id FROM events e WHERE {w} AND e.event_id IN ({ph})", [*p, *eids])}
 
 
+def _km(a_lat, a_lon, b_lat, b_lon) -> float:
+    import math
+    dlat, dlon = math.radians(b_lat - a_lat), math.radians(b_lon - a_lon)
+    h = math.sin(dlat / 2) ** 2 + math.cos(math.radians(a_lat)) * math.cos(math.radians(b_lat)) * math.sin(dlon / 2) ** 2
+    return 6371 * 2 * math.asin(math.sqrt(min(1, h)))
+
+
+def _together(con, w: str, p: list, own_srcs: list[int], srcs: dict[int, dict], gap_ms: int = 30 * 60 * 1000,
+              km: float = 0.3) -> list[dict]:
+    """Times their phone and another phone in the case were at the same place (within 300 m and 30 minutes)."""
+    if not own_srcs or len(srcs) < 2:
+        return []
+    pts = db.rows(con, f"SELECT e.event_id, e.source_id, e.ts, e.lat, e.lon, e.place FROM events e WHERE {w}"
+                       f" AND e.lat IS NOT NULL AND e.lon IS NOT NULL AND e.ts IS NOT NULL ORDER BY e.ts", p)
+    mine = [x for x in pts if x["source_id"] in own_srcs]
+    others = [x for x in pts if x["source_id"] not in own_srcs]
+    out, seen = [], set()
+    j = 0
+    for a in mine:
+        while j < len(others) and others[j]["ts"] < a["ts"] - gap_ms:
+            j += 1
+        k = j
+        while k < len(others) and others[k]["ts"] <= a["ts"] + gap_ms:
+            b = others[k]
+            k += 1
+            key = (b["source_id"], text.ist_day(a["ts"]), (a["place"] or b["place"] or "")[:40])
+            if key in seen or _km(a["lat"], a["lon"], b["lat"], b["lon"]) > km:
+                continue
+            seen.add(key)
+            other = srcs.get(int(b["source_id"]))
+            out.append({"ts": a["ts"], "when": text.fmt_when(a["ts"]), "place": a["place"] or b["place"] or "",
+                        "lat": a["lat"], "lon": a["lon"], "with": other["owner_name"] if other else "",
+                        "phone": _chip(other), "event_ids": [a["event_id"], b["event_id"]],
+                        "minutes_apart": round(abs(a["ts"] - b["ts"]) / 60000)})
+            if len(out) >= 50:
+                return out
+    return out
+
+
 @router.get("/api/cases/{cid}/people/{pid}")
 def person(cid: str, pid: int, acc: CaseAccess = Depends(require_case)):
     with db.case_db(cid) as con:
@@ -446,6 +485,7 @@ def person(cid: str, pid: int, acc: CaseAccess = Depends(require_case)):
                                  "is_their_phone": sid in own_srcs})
         across_money = [{**o, "paid_text": text.format_inr(o["paid"]), "received_text": text.format_inr(o["received"])}
                         for o in owners_money.values()]
+        together = _together(con, w, p, own_srcs, srcs)
         banner = limits.banner_text(con)
 
     first_msg = next((e for e in events if e["kind"] != "call"), None)
@@ -465,7 +505,7 @@ def person(cid: str, pid: int, acc: CaseAccess = Depends(require_case)):
         "money": {"rows": money, "paid_to_them": paid_to, "received_from_them": got_from,
                   "paid_text": text.format_inr(paid_to), "received_text": text.format_inr(got_from), "n": len(money)},
         "media": media,
-        "places_together": [],
+        "places_together": together,
         "across": {"names": across_names, "money_with_owners": across_money},
         "ask": f"What do the records say about {row['name']}?",
         "limit": banner,
