@@ -118,13 +118,62 @@ See [RULES.md](RULES.md) for the full list.
 
 ## Your project
 
-_Replace this section with your project README:_
-- **Team:**
-- **Track:**
-- **Problem:** who faces it and why it happens
-- **What we built:** the core workflow
-- **The hardest part:** how we solved it
-- **How to run it:**
-- **Demo / screenshots:**
+### Insights Buddy
+
+**Reads seized phones into one case and answers an officer's questions with the exact records behind every line.**
+
+- **Team:** cipher: Abhay Phalswal, Daksh Yadav, Sanskar Sharma
+- **Track:** Build for the Physical World (`physical-world`)
+
+#### The problem: who faces it and why it happens
+
+An investigating officer with a seized phone. A forensic tool pulls everything out of it (chats, calls, photos, voice notes, places, documents), often lakhs of records, and then the officer reads it all by hand. It takes weeks, for four reasons:
+
+1. **People don't spell.** The chats are in Hinglish. "paisa", "pese", "paise" and "पैसे" are one word, and an ordinary search finds only the spelling you typed.
+2. **People don't say what they mean.** Gold bars are "biscuits", a bribe is "chai pani", and a contact is saved under a nickname.
+3. **The answer is spread across phones.** Money leaves one phone and lands on another. A call is on one log and deleted from the other. Nobody can hold three phones in their head.
+4. **The data can't leave the building.** Case material can't be pasted into a cloud chatbot, and an answer without proof is useless in a case file.
+
+#### What we built: the core workflow
+
+1. **Add the phones to a case.** Each export is read once into the case: records, people, money, conversations and a search index.
+2. **Dashboard.** The case in plain words: who talks to whom, how much money moved, what was deleted, where the phones were together.
+3. **Ask a question** in English or Hinglish, for example *"paisa kisne kisko bheja?"*. Every line of the answer carries numbered citations; clicking one opens the record, the phone it came from and the messages around it.
+4. **Across phones.** Six checks done by code: money that left one phone and arrived on another, calls missing from one log, phones at the same place at the same time, both sides of the same chat (what one person deleted is still on the other phone), the same file on several phones, and how each phone saved the others.
+5. **Search every spelling at once**, read chats drawn like the app they came from, save findings with notes, keep an audit log, apply a warrant limit, export.
+
+It runs on one computer with no internet. The only data in this repository is made up: `ib/generate.py` writes three sample phones (about 20,000 records) for a sample case called "Operation Biscuit".
+
+#### The hardest part: never saying something we can't point to
+
+- **Code finds the evidence, and code checks every line.** An answer is built from records found by search, money and time, and any line that cites no record is dropped before the officer sees it. With no AI set up, the app still answers from the records alone; with a local model (any OpenAI-compatible server, set in `.env`), the model reads only the evidence code selected, and code checks what it wrote.
+- **Cross-phone matching is exact, not guessed.** A payment is matched by amount, time and UPI reference across two phones' bank messages. A missing call is a call on one log with no partner on the other, on a day when that other log has calls.
+- **One spelling for every way a word is written** (`ib/text.py`): Hinglish variants, Hindi script, and Indian amounts such as "dedh lakh".
+
+`tests/test_smoke.py` checks the whole path on the sample phones: 9 checks, all passing.
+
+#### How to run it
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python run.py
+```
+
+On Windows use `.venv\Scripts\pip` and `.venv\Scripts\python`. It opens http://127.0.0.1:8000; the sample login is shown on the login page. The first start creates the sample case and reads the three phones in a few seconds.
+
+Run the checks with `.venv/bin/python tests/test_smoke.py`. To use a local AI model, copy `.env.example` to `.env`.
+
+#### Demo (2 minutes)
+
+1. Log in and open **Operation Biscuit (sample data)**: three phones, the numbers, the case in plain words.
+2. **Ask** *"paisa kisne kisko bheja?"*, then click a citation: the bank SMS, its record number and the phone file it came from.
+3. **Across phones:** Rs 50,000 left Phone 1 and arrived on Phone 2 two minutes later; a 4-minute call is missing from Phone 2's log; both phones were near the airport cargo terminal at 11:40 pm.
+4. **Chats, both sides:** the 37 messages one person deleted, still on the other phone.
+5. **Search** "biscuit", confirm it as a code word, save a finding.
+
+#### What is not built
+
+"Find by meaning" search, face grouping and the link board are not built. Photos are shown as cards with their extracted text, not as images. The AI path has been tested with a stand-in model only, not yet with a real one.
 
 > **All rights reserved.** This repository is public only so the Buildathon organisers and judges can review it. No one may use or copy this code, its design or the product idea without written permission from its author, Abhay Phalswal. See [LICENSE](LICENSE).
