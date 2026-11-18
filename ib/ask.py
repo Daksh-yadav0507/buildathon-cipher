@@ -396,7 +396,7 @@ def _money_rows(con, scope_w, scope_p, rng, amounts=None, limit=200) -> list[dic
     if rng:
         rw, rp = "m.ts >= ? AND m.ts < ?", [rng["from"], rng["to"]]
     rows = db.rows(con, f"SELECT m.* FROM money m WHERE m.event_id IN (SELECT e.event_id FROM events e WHERE {w} AND "
-                        f"{scope_w}) AND {rw} ORDER BY m.ts LIMIT ?", [*p, *scope_p, *rp, limit * 3])
+                        f"{scope_w}) AND {rw} ORDER BY m.amount DESC, m.ts LIMIT ?", [*p, *scope_p, *rp, limit * 3])
     if amounts:
         near = [r for r in rows if any(abs((r["amount"] or 0) - a) <= max(1.0, a * 0.01) for a in amounts)]
         if near:
@@ -570,6 +570,20 @@ def _money_lines(ctx: Ctx, con, money: list[dict], question_amounts) -> tuple[li
     lines, used = [], set()
     debits = [m for m in money if m.get("direction") == "debit"]
     credits = [m for m in money if m.get("direction") == "credit"]
+    # rank: money that shows up on another phone first, then the largest amounts, then the oldest
+    w0, p0 = limits.where(con, "e")
+    cross = db.rows(con, f"SELECT m.source_id, m.amount, m.ts FROM money m WHERE m.direction = 'credit' AND "
+                         f"m.event_id IN (SELECT e.event_id FROM events e WHERE {w0})", p0)
+    by_amount: dict[int, list[dict]] = {}
+    for c0 in cross:
+        by_amount.setdefault(int(round(c0["amount"] or 0)), []).append(c0)
+
+    def _has_match(d: dict) -> bool:
+        return any(c0["source_id"] != d["source_id"] and d["ts"] - 60_000 <= c0["ts"] <= d["ts"] + 2 * 86_400_000
+                   for c0 in by_amount.get(int(round(d["amount"] or 0)), []))
+
+    debits.sort(key=lambda d: (not _has_match(d), -(d.get("amount") or 0), d.get("ts") or 0))
+    credits.sort(key=lambda c: (-(c.get("amount") or 0), c.get("ts") or 0))
     # credits on other phones that may match a debit, also outside the question's own evidence
     for d in debits:
         if len(lines) >= MAX_LINES:
