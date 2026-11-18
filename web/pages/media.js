@@ -9,7 +9,7 @@
 
   IB.css('pg-media', `
     .md-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .md-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+    .md-photos .rec-list, .md-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
     .md-card { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 12px; cursor: pointer; background: var(--surface, transparent); border: 1px solid var(--line, rgba(127,127,127,.2)); text-align: left; font: inherit; color: inherit; }
     .md-card:hover, .md-card:focus-visible { border-color: var(--accent, #3b6cf6); }
     .md-card svg { width: 100%; height: auto; display: block; border-radius: 8px; }
@@ -134,7 +134,7 @@
       body.innerHTML = '';
       const holder = document.createElement('div');
       body.appendChild(holder);
-      if (k === 'photo') holder.className = '';
+      if (k === 'photo') holder.className = 'md-photos';
       IB.moreList(holder, {
         alive: ctx.alive,
         noun: def.noun,
@@ -154,15 +154,6 @@
         },
         row: (r) => rowHtml(k, r),
       });
-      // Photos sit in a grid of cards rather than a list.
-      if (k === 'photo') {
-        const obs = new MutationObserver(() => {
-          IB.$$('.md-card', holder).forEach((c) => {
-            if (c.parentElement && !c.parentElement.classList.contains('md-grid')) c.parentElement.classList.add('md-grid');
-          });
-        });
-        obs.observe(holder, { childList: true, subtree: true });
-      }
     };
 
     tabs = IB.tabs(IB.$('#md-tabs', view), { tabs: KINDS.map((x) => ({ key: x.key, label: x.label })), active: kind, onChange: show, label: 'Kinds of file' });
