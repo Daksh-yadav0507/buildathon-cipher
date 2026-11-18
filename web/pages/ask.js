@@ -226,7 +226,7 @@
     ctx.bar('');
 
     view.innerHTML = `<div class="page stack">
-      <div class="ask-head">${IB.tile('spark', 'violet')}<div>
+      <div class="ask-head">${IB.tile('spark', 'teal')}<div>
         <h2 class="page-title">Ask anything about this case</h2>
         <p class="muted">In English or Hinglish. Every answer shows the messages it rests on.</p></div></div>
       <section class="card stack" aria-label="Your question">

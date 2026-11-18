@@ -340,7 +340,7 @@
       });
       const list = [...groups.values()].sort((a, b) => b.n - a.n);
       if (!list.length) { el.innerHTML = IB.empty('No apps yet. Add a phone first.', { icon: 'grid' }); return; }
-      const tones = ['blue', 'green', 'violet', 'orange', 'teal'];
+      const tones = ['blue', 'green', 'pink', 'orange', 'teal'];
       el.innerHTML = `<div class="db-apps">${list.map((g, i) => {
         const range = g.first && g.last ? `${IB.fmt.date(g.first)} to ${IB.fmt.date(g.last)}` : '';
         const kinds = g.kinds.length > 1 ? g.kinds.map((k) => IB.plural(k.n, k.kind, k.kind + 's')).join(', ') : '';

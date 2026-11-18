@@ -45,8 +45,8 @@
 
   const STATUS = {
     answered: ['Answered', 'green'],
-    'not found': ['Not found', 'violet'],
-    not_found: ['Not found', 'violet'],
+    'not found': ['Not found', 'grey'],
+    not_found: ['Not found', 'grey'],
     waiting: ['Waiting', 'blue'],
     running: ['Working on it', 'blue'],
     failed: ['Could not answer', 'orange'],

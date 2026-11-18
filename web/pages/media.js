@@ -181,7 +181,7 @@
       }
       const text = r.ocr_text || r.body || r.text || '';
       return `<div class="md-row">
-        ${IB.tile('file', 'violet')}
+        ${IB.tile('file', 'teal')}
         <div class="md-main stack">
           <div class="row"><b class="clamp-1">${esc(r.media_name || 'Document')}</b><span class="small muted">${r.media_size ? esc(IB.fmt.size(r.media_size)) : ''}</span>
             <span class="grow"></span>${IB.phoneChip(r.phone_label || r.source_id)}</div>

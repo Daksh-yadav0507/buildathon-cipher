@@ -178,7 +178,7 @@
       const one = pick(r, 'only_one', 'one_side', 'on_one_only', 'n_one_side');
       const del = pick(r, 'deleted_elsewhere', 'deleted_one_side', 'n_deleted_one_side', 'deleted_on_one');
       const notes = [];
-      if (one) notes.push(`<span class="pill tone-violet">${E(IB.plural(Number(one), 'message', 'messages'))} on one phone only</span>`);
+      if (one) notes.push(`<span class="pill tone-pink">${E(IB.plural(Number(one), 'message', 'messages'))} on one phone only</span>`);
       if (del) notes.push(`<span class="chip status serious">${E(IB.plural(Number(del), 'message', 'messages'))} deleted on one phone, still on another</span>`);
       list(r.notes).forEach(n => notes.push(`<span class="small">${E(typeof n === 'string' ? n : n.text)}</span>`));
       const href = conv ? IB.link('chats', { conv, both: 1 }) : '';

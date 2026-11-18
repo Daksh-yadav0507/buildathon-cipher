@@ -64,7 +64,7 @@
         <div class="cv-meta tiny">
           ${n != null ? `<span class="muted">${esc(IB.plural(n, 'message', 'messages'))}</span>` : ''}
           ${del ? `<span class="chip status critical">${esc(IB.fmt.num(del))} deleted</span>` : ''}
-          ${also.length ? `<span class="pill tone-violet">Also on ${esc(also.map(phoneName).join(', '))}</span>` : ''}
+          ${also.length ? `<span class="pill tone-teal">Also on ${esc(also.map(phoneName).join(', '))}</span>` : ''}
           ${(IB.state.phones || []).length > 1 && (c.source_id != null || c.phone_label) ? IB.phoneChip(c.phone_label || c.source_id) : ''}
         </div>
       </div>

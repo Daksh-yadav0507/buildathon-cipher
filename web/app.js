@@ -803,7 +803,7 @@
 
   /* ------------------------------------------------------------------ chips and small parts */
 
-  const TONES = ['blue', 'green', 'orange', 'violet', 'teal'];
+  const TONES = ['blue', 'green', 'orange', 'pink', 'teal'];
   function phoneInfo(p) {
     const phones = state.phones || [];
     let src = null, label = '', n = 0, phoneNo = '';

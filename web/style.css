@@ -1,5 +1,5 @@
 /* Insights Buddy: the shared stylesheet.
-   Mint and graphite. Flat surfaces, hairlines, a mint primary button and a violet accent.
+   Mint and graphite. Flat surfaces, hairlines, a mint primary button and a teal-blue accent.
    Shadows only on drawers, dialogs, menus and tooltips. No gradients except the logo.
    Page-only styles go through IB.css(id, text), not into this file. */
 
@@ -9,16 +9,16 @@
   color-scheme: light;
   --bg:#f3f3f5; --surface:#ffffff; --surface-2:#f0f0f3; --border:#e1e1e6; --control:#7a7c84; --field:#ffffff;
   --text:#141416; --text-2:#4a4c53; --text-3:#5f6169;
-  --accent:#6941c6; --accent-ink:#f4f4f5; --accent-soft:#efeafd;
+  --accent:#0b7285; --accent-ink:#f4f4f5; --accent-soft:#e0f3f6;
   --primary:#b6f2ee; --primary-hover:#9fe9e3; --primary-ink:#06211f; --primary-edge:#0f766e;
-  --side-bg:#ffffff; --side-ink:#141416; --side-ink-2:#4a4c53; --side-line:#e1e1e6; --side-on:#ececf0; --side-mark:#6941c6;
+  --side-bg:#ffffff; --side-ink:#141416; --side-ink-2:#4a4c53; --side-line:#e1e1e6; --side-on:#ececf0; --side-mark:#0b7285;
   --critical:#c0264f; --serious:#ad3a09; --warning:#92400e; --good:#166534;
-  --mark:#fde68a; --out:#efeafd; --in:#ffffff;
-  --series:#6941c6; --seq-lo:#efeafd; --seq-hi:#4c2a9e; --empty:#ececf0;
+  --mark:#fde68a; --out:#e0f3f6; --in:#ffffff;
+  --series:#0b7285; --seq-lo:#e0f3f6; --seq-hi:#075462; --empty:#ececf0;
   --flag:#0f766e; --flag-soft:#dcf5f2;
   --hero-bg:#1e1e21; --on-strong:#f4f4f5;
   --tone-blue-bg:#e6edfb; --tone-blue-fg:#1d4ed8; --tone-green-bg:#dcf5e6; --tone-green-fg:#166534;
-  --tone-violet-bg:#efeafd; --tone-violet-fg:#5b3bb0; --tone-orange-bg:#fdebdc; --tone-orange-fg:#9a3412;
+  --tone-pink-bg:#fce8f1; --tone-pink-fg:#9d174d; --tone-orange-bg:#fdebdc; --tone-orange-fg:#9a3412;
   --tone-teal-bg:#dcf5f2; --tone-teal-fg:#0f766e;
   --shadow-lg:0 16px 40px rgba(20,20,22,.16);
   --font-text:"Atkinson Hyperlegible Next","Nirmala UI","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
@@ -40,15 +40,15 @@
   color-scheme: dark;
   --bg:#141416; --surface:#1e1e21; --surface-2:#18181b; --border:#2e2e33; --field:#18181b;
   --text:#f4f4f5; --text-2:#b9bbc0; --text-3:#9a9ca3;
-  --accent:#b9a4fc; --accent-ink:#141416; --accent-soft:#2c2645;
+  --accent:#6fd3e6; --accent-ink:#141416; --accent-soft:#16333a;
   --primary:#b6f2ee; --primary-hover:#d2f8f5; --primary-ink:#06211f; --primary-edge:#b6f2ee;
-  --side-bg:#1e1e21; --side-ink:#f4f4f5; --side-ink-2:#b9bbc0; --side-line:#3a3a3f; --side-on:#393a3f; --side-mark:#b9a4fc;
+  --side-bg:#1e1e21; --side-ink:#f4f4f5; --side-ink-2:#b9bbc0; --side-line:#3a3a3f; --side-on:#393a3f; --side-mark:#6fd3e6;
   --critical:#ff6b8a; --serious:#fda46b; --warning:#f5c451; --good:#3ecf8e;
-  --mark:#4d3e0d; --out:#2c2645; --in:#252529;
-  --series:#b9a4fc; --seq-lo:#2c2645; --seq-hi:#ddd2fe; --empty:#26262a;
+  --mark:#4d3e0d; --out:#16333a; --in:#252529;
+  --series:#6fd3e6; --seq-lo:#16333a; --seq-hi:#c9f1f8; --empty:#26262a;
   --flag:#b6f2ee; --flag-soft:#1b3533;
   --tone-blue-bg:#1e2a44; --tone-blue-fg:#b7cbf8; --tone-green-bg:#15322a; --tone-green-fg:#9ee8c4;
-  --tone-violet-bg:#2c2645; --tone-violet-fg:#d6cafd; --tone-orange-bg:#3a2616; --tone-orange-fg:#fdc79b;
+  --tone-pink-bg:#3a1a2b; --tone-pink-fg:#f9a8d4; --tone-orange-bg:#3a2616; --tone-orange-fg:#fdc79b;
   --tone-teal-bg:#15302e; --tone-teal-fg:#8de6dc;
   --shadow-lg:0 16px 40px rgba(0,0,0,.6);
   --hover:rgba(255,255,255,.05); --press:rgba(255,255,255,.09);
@@ -251,7 +251,7 @@ body.bare .frame, :root[data-bare] .frame { margin-left:0; }
 .avatar {
   width:36px; height:36px; border-radius:50%; flex:none;
   display:inline-flex; align-items:center; justify-content:center;
-  border:1px solid var(--border); background:var(--tone-violet-bg); color:var(--tone-violet-fg);
+  border:1px solid var(--border); background:var(--tone-pink-bg); color:var(--tone-pink-fg);
   font-size:var(--t-xs); font-weight:700; letter-spacing:.02em;
   transition:box-shadow var(--d-micro) var(--ease);
 }
@@ -388,7 +388,7 @@ main#view { flex:1; min-width:0; outline:none; }
 }
 :root[data-theme="dark"] .hero { border-color:var(--border); background:var(--surface); }
 .hero .muted, .hero .card-sub { color:#b9bbc0; }
-.hero a:not(.btn) { color:#d6cafd; }
+.hero a:not(.btn) { color:#a9e3ef; }
 .hero .page-title, .hero .card-title { color:var(--on-strong); }
 .hero .btn:not(.primary) { background:transparent; color:var(--on-strong); border-color:#4a4c53; }
 .hero .btn:not(.primary):hover { background:rgba(255,255,255,.08); }
@@ -523,7 +523,7 @@ button.chip[aria-pressed="true"], .chip.on { background:var(--accent-soft); bord
 .chip.phone.p1 { background:var(--tone-blue-bg); color:var(--tone-blue-fg); }
 .chip.phone.p2 { background:var(--tone-green-bg); color:var(--tone-green-fg); }
 .chip.phone.p3 { background:var(--tone-orange-bg); color:var(--tone-orange-fg); }
-.chip.phone.p4 { background:var(--tone-violet-bg); color:var(--tone-violet-fg); }
+.chip.phone.p4 { background:var(--tone-pink-bg); color:var(--tone-pink-fg); }
 .chip.phone.p5 { background:var(--tone-teal-bg); color:var(--tone-teal-fg); }
 
 .chip.status { background:var(--surface-2); color:var(--text-2); }
@@ -541,7 +541,7 @@ button.chip[aria-pressed="true"], .chip.on { background:var(--accent-soft); bord
 }
 .tone-blue { background:var(--tone-blue-bg); color:var(--tone-blue-fg); }
 .tone-green { background:var(--tone-green-bg); color:var(--tone-green-fg); }
-.tone-violet { background:var(--tone-violet-bg); color:var(--tone-violet-fg); }
+.tone-pink { background:var(--tone-pink-bg); color:var(--tone-pink-fg); }
 .tone-orange { background:var(--tone-orange-bg); color:var(--tone-orange-fg); }
 .tone-teal { background:var(--tone-teal-bg); color:var(--tone-teal-fg); }
 .tone-critical, .tone-red { background:var(--critical-soft); color:var(--critical); }
@@ -575,7 +575,7 @@ button.chip[aria-pressed="true"], .chip.on { background:var(--accent-soft); bord
 .tile.large { width:48px; height:48px; border-radius:var(--r-l); }
 .tile.blue { background:var(--tone-blue-bg); color:var(--tone-blue-fg); }
 .tile.green { background:var(--tone-green-bg); color:var(--tone-green-fg); }
-.tile.violet { background:var(--tone-violet-bg); color:var(--tone-violet-fg); }
+.tile.pink { background:var(--tone-pink-bg); color:var(--tone-pink-fg); }
 .tile.orange { background:var(--tone-orange-bg); color:var(--tone-orange-fg); }
 .tile.teal { background:var(--tone-teal-bg); color:var(--tone-teal-fg); }
 
@@ -1029,7 +1029,7 @@ body.is-bare .frame { margin-left:0; }
 /* ---------- Polish pass: contrast, text size, click targets, press feedback ---------- */
 /* The case header is dark in both themes, so its small labels and links use light ink. */
 .hero .caps { color:#c3c5cb; }
-.hero .link, .hero button.link { color:#d6cafd; }
+.hero .link, .hero button.link { color:#a9e3ef; }
 /* A selected filter keeps readable ink in the dark theme. */
 :root[data-theme="dark"] .btn[aria-pressed="true"], :root[data-theme="dark"] .btn.on,
 :root[data-theme="dark"] button.chip[aria-pressed="true"], :root[data-theme="dark"] .chip.on {
